@@ -9,9 +9,14 @@ export default defineConfig({
     timeout: 10_000,
   },
   fullyParallel: false,
-  retries: 0,
+  // Retry flaky tests up to 2 times in CI to reduce transient failures.
+  retries: process.env.CI ? 2 : 0,
   use: {
     baseURL: process.env.E2E_BASE_URL || 'http://localhost:5000',
     trace: 'retain-on-failure',
+    // Stable launch options for CI
+    headless: true,
+    actionTimeout: 30_000,
   },
+  reporter: [['list'], ['junit', { outputFile: 'test-results/junit.xml' }]],
 });

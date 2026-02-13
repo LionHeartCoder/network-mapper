@@ -73,10 +73,17 @@ async function createDeviceMarker(page: Page, name: string, type = 'switch'): Pr
 }
 
 test.describe('Undo/Redo + Import E2E', () => {
-  test('create -> delete -> undo restores marker in client history', async ({ page, request }) => {
+  test.beforeEach(async ({ request }) => {
     await cleanupE2E(request);
+  });
+
+  test.afterEach(async ({ request }) => {
+    await cleanupE2E(request);
+  });
+
+  test('create -> delete -> undo -> redo (via UI history)', async ({ page }) => {
     const buildingName = `E2E Undo Delete ${Date.now()}`;
-    await createFloorplanFixture(request, buildingName);
+    await createFloorplanFixture(page.request, buildingName);
     await loadBuildingFloorplan(page, buildingName);
 
     const expectedCountAfterCreate = await createDeviceMarker(page, `E2E Delete Device ${Date.now()}`);
@@ -88,13 +95,13 @@ test.describe('Undo/Redo + Import E2E', () => {
     await page.click('#histUndo');
     await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate);
 
-    await cleanupE2E(request);
+    await page.click('#histRedo');
+    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate - 1);
   });
 
-  test('create -> move -> undo -> redo reverts and reapplies coordinates', async ({ page, request }) => {
-    await cleanupE2E(request);
+  test('create -> move -> undo -> redo reverts and reapplies coordinates', async ({ page }) => {
     const buildingName = `E2E Move ${Date.now()}`;
-    await createFloorplanFixture(request, buildingName);
+    await createFloorplanFixture(page.request, buildingName);
     await loadBuildingFloorplan(page, buildingName);
 
     await createDeviceMarker(page, `E2E Move Device ${Date.now()}`);
@@ -127,8 +134,6 @@ test.describe('Undo/Redo + Import E2E', () => {
       const m = document.querySelector('.marker:last-child') as HTMLElement | null;
       return !!m && `${m.style.left} ${m.style.top}` !== style;
     }, beforeStyle);
-
-    await cleanupE2E(request);
   });
 
   test('csv import UI flow increases device rows', async ({ page }) => {
