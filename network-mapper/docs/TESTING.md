@@ -35,6 +35,8 @@
   - Playwright suite for create/delete/undo/redo, move/undo/redo, multi-create history race guard, CSV import UI flow, bulk CSV import, and icon-refresh helper invocation.
 - `e2e/icon_picker_device_types.spec.ts`
   - Playwright suite for home-page icon-picker navigation, short icon label rendering, custom device type add/remove, and mapped-icon usage in the building editor.
+- `e2e/csv_import.spec.ts`
+  - Playwright suite for CSV edge cases: missing/extra columns, duplicate rows, and larger batch imports with UI + API verification.
 
 ## Running tests (proposed)
 - Add `tests/backend/` and `tests/e2e/` directories.
@@ -43,6 +45,7 @@
   pytest -q
   ```
 - Playwright (if used): `npx playwright test`
+- CSV import edge-case spec only: `npx playwright test e2e/csv_import.spec.ts`
 
 ## Local playback steps
 1. Start app:
