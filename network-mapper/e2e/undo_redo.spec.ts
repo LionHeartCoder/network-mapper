@@ -60,16 +60,31 @@ async function loadBuildingFloorplan(page: Page, buildingName: string): Promise<
   await expect(page.locator('#floorImage')).toBeVisible();
 }
 
-async function createDeviceMarker(page: Page, name: string, type = 'switch'): Promise<number> {
+async function createDeviceMarker(
+  page: Page,
+  name: string,
+  type = 'switch',
+  position: { x: number; y: number } = { x: 60, y: 60 }
+): Promise<number> {
   const before = await page.locator('.marker').count();
   await page.click('#newDeviceBtn');
-  await page.click('#floorImage', { position: { x: 60, y: 60 } });
+  await page.click('#floorImage', { position, force: true });
   await expect(page.locator('#deviceModal:not(.hidden)')).toBeVisible();
   await page.fill('#deviceName', name);
   await page.selectOption('#deviceType', type);
   await page.click('#deviceSave');
   await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, before + 1);
   return before + 1;
+}
+
+async function visibleDeviceRows(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll('#devices tbody tr'));
+    return rows.filter((r) => {
+      const text = r.textContent || '';
+      return !text.includes('Loading') && !text.includes('No devices');
+    }).length;
+  });
 }
 
 test.describe('Undo/Redo + Import E2E', () => {
@@ -136,18 +151,33 @@ test.describe('Undo/Redo + Import E2E', () => {
     }, beforeStyle);
   });
 
+  test('multiple create actions undo/redo consistently (history race guard)', async ({ page, request }) => {
+    const buildingName = `E2E-Multi-History-${Date.now()}`;
+    await createFloorplanFixture(request, buildingName);
+    await loadBuildingFloorplan(page, buildingName);
+
+    const start = await page.locator('.marker').count();
+    await createDeviceMarker(page, `E2E-Multi-1-${Date.now()}`, 'switch', { x: 60, y: 60 });
+    await createDeviceMarker(page, `E2E-Multi-2-${Date.now()}`, 'switch', { x: 180, y: 120 });
+    const afterCreate = await page.locator('.marker').count();
+    expect(afterCreate).toBe(start + 2);
+
+    await page.click('#histUndo');
+    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start + 1);
+    await page.click('#histUndo');
+    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start);
+
+    await page.click('#histRedo');
+    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start + 1);
+    await page.click('#histRedo');
+    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start + 2);
+  });
+
   test('csv import UI flow increases device rows and verifies via API', async ({ page, request }) => {
     await page.goto(`${BASE}/devices.html`);
     await page.waitForSelector('#devices tbody');
 
-    const beforeRows = await page.evaluate(() => {
-      const rows = Array.from(document.querySelectorAll('#devices tbody tr'));
-      return rows.filter((r) => {
-        const text = r.textContent || '';
-        return !text.includes('Loading') && !text.includes('No devices');
-      }).length;
-    });
-
+    const beforeRows = await visibleDeviceRows(page);
     const unique = `E2E-CSV-${Date.now()}`;
     const csv = [
       'name,ip,type,building',
@@ -169,19 +199,50 @@ test.describe('Undo/Redo + Import E2E', () => {
       );
     }, unique);
 
-    const afterRows = await page.evaluate(() => {
-      const rows = Array.from(document.querySelectorAll('#devices tbody tr'));
-      return rows.filter((r) => {
-        const text = r.textContent || '';
-        return !text.includes('Loading') && !text.includes('No devices');
-      }).length;
-    });
+    const afterRows = await visibleDeviceRows(page);
     expect(afterRows).toBeGreaterThan(beforeRows);
 
     const apiList = await request.get(`${BASE}/api/devices`);
     expect(apiList.ok()).toBeTruthy();
     const devices = await apiList.json();
     expect(devices.some((d: { name?: string }) => d.name === `${unique}-switch`)).toBeTruthy();
+  });
+
+  test('bulk CSV import via UI adds expected batch and is queryable via API', async ({ page, request }) => {
+    await page.goto(`${BASE}/devices.html`);
+    await page.waitForSelector('#devices tbody');
+
+    const beforeRows = await visibleDeviceRows(page);
+    const unique = `E2E-BULK-${Date.now()}`;
+    const bulkCount = 25;
+    const rows = ['name,ip,type,building'];
+    for (let i = 0; i < bulkCount; i += 1) {
+      rows.push(`${unique}-${i},10.20.0.${(i % 250) + 1},switch,${unique}-building`);
+    }
+    const csv = rows.join('\n');
+
+    page.once('dialog', (dialog) => dialog.accept());
+    await page.setInputFiles('form#importForm input[name="file"]', {
+      name: 'e2e-bulk.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv, 'utf-8'),
+    });
+    await page.click('form#importForm button[type="submit"]');
+
+    await page.waitForFunction((needle) => {
+      return Array.from(document.querySelectorAll('#devices tbody tr')).some((row) =>
+        (row.textContent || '').includes(needle)
+      );
+    }, `${unique}-${bulkCount - 1}`);
+
+    const afterRows = await visibleDeviceRows(page);
+    expect(afterRows).toBeGreaterThanOrEqual(beforeRows + bulkCount);
+
+    const apiList = await request.get(`${BASE}/api/devices`);
+    expect(apiList.ok()).toBeTruthy();
+    const devices = (await apiList.json()) as Array<{ name?: string }>;
+    const bulkSeen = devices.filter((d) => (d.name || '').startsWith(unique)).length;
+    expect(bulkSeen).toBeGreaterThanOrEqual(bulkCount);
   });
 
   test('marker icon refresh helper can be invoked in isolation', async ({ page }) => {
