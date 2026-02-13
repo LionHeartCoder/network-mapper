@@ -4,3 +4,5 @@ node_modules/
 *.sqlite3
 network-mapper.db
 .DS_Store
+# ignore local test artifacts
+test-results/
