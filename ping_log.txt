@@ -1,0 +1,8 @@
+[2025-05-06 13:29:13] 192.168.1.1 is down or not responding
+[2025-05-06 13:29:24] 192.168.1.100 is down or not responding
+[2025-05-06 13:29:24] google.com is up - Response time: 55.9 ms
+[2025-05-06 13:29:24] 8.8.8.8 is up - Response time: 35.59 ms
+[2025-05-06 13:30:35] 10.31.0.1 is up - Response time: 32.36 ms
+[2025-05-06 13:30:35] 10.21.0.1 is up - Response time: 19.63 ms
+[2025-05-06 13:30:35] www.iwcs.k12.va.us is up - Response time: 82.39 ms
+[2025-05-06 13:30:35] 8.8.8.8 is up - Response time: 34.69 ms

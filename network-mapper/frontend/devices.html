@@ -1,0 +1,23 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Devices</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header><h1>Devices</h1></header>
+  <main>
+    <button id="refresh">Refresh</button>
+    <form id="importForm" style="margin-top:1rem">
+      <label>Import CSV: <input type="file" name="file" accept=".csv" required></label>
+      <button type="submit">Upload</button>
+    </form>
+    <table id="devices" border="1" style="width:100%;margin-top:1rem">
+      <thead><tr><th>ID</th><th>Name</th><th>IP</th><th>Type</th><th>Building</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </main>
+  <script src="/js/devices.js"></script>
+</body>
+</html>

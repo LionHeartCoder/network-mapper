@@ -1,0 +1,364 @@
+{
+  "name": "WHD Email Ticket Tracker",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "imap-backfill",
+      "name": "IMAP - Backfill (Manual)",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        520,
+        360
+      ],
+      "notes": "Run once. Set IMAP credentials, mailbox, and search criteria to pull historical WHD emails."
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "imap-trigger",
+      "name": "IMAP - New WHD Email",
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        520,
+        600
+      ],
+      "notes": "Trigger for new WHD emails. Configure IMAP credentials and filter to the WHD label." 
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse WHD email subject/body into structured ticket fields\nconst items = $input.all();\n\nfunction cleanText(value) {\n  if (!value) return '';\n  return value\n    .replace(/<[^>]*>/g, ' ')\n    .replace(/&nbsp;/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nfunction getHeader(headers, name) {\n  if (!headers || !Array.isArray(headers)) return '';\n  const match = headers.find(h => (h.name || '').toLowerCase() === name.toLowerCase());\n  return match ? match.value || '' : '';\n}\n\nfunction extractField(text, label) {\n  const re = new RegExp(label + '\\s*:?\\s*([^\\n\\r]+)', 'i');\n  const m = text.match(re);\n  return m ? m[1].trim() : '';\n}\n\nconst parsed = [];\n\nfor (const item of items) {\n  const json = item.json || {};\n  const headers = json.payload ? json.payload.headers : [];\n  const subject = json.subject || getHeader(headers, 'Subject') || '';\n  const rawText = json.textPlain || json.textHtml || json.snippet || '';\n  const body = cleanText(rawText);\n\n  const ticketMatch = subject.match(/Ticket\\s*#?\\s*(\\d+)/i);\n  const ticketId = ticketMatch ? ticketMatch[1] : '';\n\n  const statusMatch = subject.match(/\\b(Closed|Open|Pending|Updated)\\b/i);\n  const status = statusMatch ? statusMatch[1].charAt(0).toUpperCase() + statusMatch[1].slice(1).toLowerCase() : 'Updated';\n\n  const subjectSummary = subject\n    .replace(/Ticket\\s*#?\\s*\\d+\\s*/i, '')\n    .replace(/\\b(Closed|Open|Pending|Updated)\\b\\s*[-:>]*\\s*/i, '')\n    .trim();\n\n  const client = extractField(body, 'Name') || extractField(body, 'Client') || '';\n  const location = extractField(body, 'Location') || '';\n  const tech = extractField(body, 'Tech') || '';\n  const notes = extractField(body, 'Request Detail') || extractField(body, 'Detail') || body.slice(0, 500);\n\n  const emailDate = json.date || json.internalDate || json.createdAt || new Date().toISOString();\n\n  if (!ticketId) continue;\n\n  parsed.push({\n    json: {\n      ticketId,\n      status,\n      subject: subjectSummary || subject,\n      client,\n      location,\n      tech,\n      notes,\n      emailDate\n    }\n  });\n}\n\nreturn parsed;"
+      },
+      "id": "parse-email",
+      "name": "Parse WHD Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        780,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sort by emailDate so newer updates overwrite older ones\nconst items = $input.all();\nitems.sort((a, b) => {\n  const ta = new Date(a.json.emailDate).getTime() || 0;\n  const tb = new Date(b.json.emailDate).getTime() || 0;\n  return ta - tb;\n});\nreturn items;"
+      },
+      "id": "sort-by-date",
+      "name": "Sort By Email Date",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1010,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "row",
+        "operation": "upsert",
+        "tableId": "WHD_Tickets",
+        "options": {
+          "keyColumn": "ticketId"
+        },
+        "columns": [
+          {
+            "name": "ticketId",
+            "value": "={{$json.ticketId}}"
+          },
+          {
+            "name": "status",
+            "value": "={{$json.status}}"
+          },
+          {
+            "name": "subject",
+            "value": "={{$json.subject}}"
+          },
+          {
+            "name": "client",
+            "value": "={{$json.client}}"
+          },
+          {
+            "name": "location",
+            "value": "={{$json.location}}"
+          },
+          {
+            "name": "tech",
+            "value": "={{$json.tech}}"
+          },
+          {
+            "name": "notes",
+            "value": "={{$json.notes}}"
+          },
+          {
+            "name": "emailDate",
+            "value": "={{$json.emailDate}}"
+          }
+        ]
+      },
+      "id": "datatable-upsert",
+      "name": "Data Table - Upsert Ticket",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        1250,
+        380
+      ],
+      "notes": "If this node errors, open it in the UI and re-select the Data Table + key column."
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build a JSON file from the latest ticket list\nconst items = $input.all().map(item => item.json);\nconst content = JSON.stringify(items, null, 2);\nconst data = Buffer.from(content, 'utf8').toString('base64');\n\nreturn [\n  {\n    json: {\n      count: items.length,\n      filePath: '/Users/bkoury/Documents/VS Code/whd_tickets.json'\n    },\n    binary: {\n      data: {\n        data,\n        mimeType: 'application/json',\n        fileName: 'whd_tickets.json'\n      }\n    }\n  }\n];"
+      },
+      "id": "build-json",
+      "name": "Build Tickets JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Keep only non-closed tickets and aggregate into one payload\nconst items = $input.all().map(item => item.json);\nconst openTickets = items.filter(ticket => (ticket.status || '').toLowerCase() !== 'closed');\nreturn [{ json: { tickets: openTickets } }];"
+      },
+      "id": "filter-open",
+      "name": "Filter Open Tickets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1250,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build LLM prompt for daily battle plan and triage\nconst tickets = $json.tickets || [];\nconst system = 'You are an IT Service Desk Manager.';\nconst user = `Analyze these tickets and return a Daily Battle Plan in Markdown.\n\nRequirements:\n1) Triage Critical/High first.\n2) Group the rest by topic (Hardware, Software, Access).\n3) Provide a one-sentence first troubleshooting step for the top 3 urgent tickets.\n4) Return a short cleaned summary list of open tickets.\n\nTickets JSON:\n${JSON.stringify(tickets)}`;\n\nreturn [{\n  json: {\n    messages: [\n      { role: 'system', content: system },\n      { role: 'user', content: user }\n    ]\n  }\n}];"
+      },
+      "id": "build-prompt",
+      "name": "Build LLM Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://127.0.0.1:1234/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { model: 'llama-3.1-8b-instruct', messages: $json.messages, temperature: 0.2 } }}"
+      },
+      "id": "lmstudio",
+      "name": "LM Studio - Daily Plan",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1710,
+        720
+      ],
+      "notes": "LM Studio must be running with OpenAI-compatible API at http://127.0.0.1:1234"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract summary text from LM Studio response\nconst text = $json.choices && $json.choices[0] && $json.choices[0].message ? $json.choices[0].message.content : '';\nreturn [{ json: { summary: text, generatedAt: new Date().toISOString() } }];"
+      },
+      "id": "extract-summary",
+      "name": "Extract Summary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1930,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Build summary JSON file\nconst content = JSON.stringify($json, null, 2);\nconst data = Buffer.from(content, 'utf8').toString('base64');\n\nreturn [\n  {\n    json: {\n      filePath: '/Users/bkoury/Documents/VS Code/whd_tickets_summary.json'\n    },\n    binary: {\n      data: {\n        data,\n        mimeType: 'application/json',\n        fileName: 'whd_tickets_summary.json'\n      }\n    }\n  }\n];"
+      },
+      "id": "build-summary-json",
+      "name": "Build Summary JSON",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2150,
+        720
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "filePath": "={{$json.filePath}}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "write-summary",
+      "name": "Write Summary JSON",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        2380,
+        720
+      ],
+      "notes": "Writes /Users/bkoury/Documents/VS Code/whd_tickets_summary.json"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "filePath": "={{$json.filePath}}",
+        "dataPropertyName": "data",
+        "options": {}
+      },
+      "id": "write-json",
+      "name": "Write Tickets JSON",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1480,
+        560
+      ],
+      "notes": "Writes /Users/bkoury/Documents/VS Code/whd_tickets.json"
+    }
+  ],
+  "connections": {
+    "IMAP - Backfill (Manual)": {
+      "main": [
+        [
+          {
+            "node": "Parse WHD Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IMAP - New WHD Email": {
+      "main": [
+        [
+          {
+            "node": "Parse WHD Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse WHD Email": {
+      "main": [
+        [
+          {
+            "node": "Sort By Email Date",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sort By Email Date": {
+      "main": [
+        [
+          {
+            "node": "Data Table - Upsert Ticket",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Build Tickets JSON",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Filter Open Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Tickets JSON": {
+      "main": [
+        [
+          {
+            "node": "Write Tickets JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter Open Tickets": {
+      "main": [
+        [
+          {
+            "node": "Build LLM Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build LLM Prompt": {
+      "main": [
+        [
+          {
+            "node": "LM Studio - Daily Plan",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "LM Studio - Daily Plan": {
+      "main": [
+        [
+          {
+            "node": "Extract Summary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Summary": {
+      "main": [
+        [
+          {
+            "node": "Build Summary JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Summary JSON": {
+      "main": [
+        [
+          {
+            "node": "Write Summary JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

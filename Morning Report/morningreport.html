@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technology Playbook - Opening Procedures</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f9;
+        }
+        h1 {
+            color: #333;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th {
+            background-color: #007BFF;
+            color: white;
+        }
+        .status-up {
+            color: green;
+            font-weight: bold;
+        }
+        .status-down {
+            color: red;
+            font-weight: bold;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .retest-btn {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        .camera-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .camera-row input {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        .camera-row button {
+            padding: 6px 12px;
+            font-size: 0.85rem;
+        }
+        .helper-text {
+            color: #666;
+            font-size: 0.9rem;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Technology Playbook - Opening Procedures</h1>
+    <p>Use this dashboard to complete your daily opening tasks. Check off each item as you complete it. Click links to verify online services.</p>
+
+    <h2>Operations</h2>
+    <ul>
+        <li><input type="checkbox" id="lights"> <label for="lights">Turn on Office Lights</label></li>
+        <li><input type="checkbox" id="storage"> <label for="storage">Double check storage area is secured and locked</label></li>
+    </ul>
+
+    <h2>Network Verification</h2>
+    <button id="pingAll" style="margin-bottom:10px;">Ping All Devices & Websites</button>
+    <table>
+        <thead>
+            <tr>
+                <th>School/Location</th>
+                <th>Primary Switch</th>
+                <th>Switch Status</th>
+                <th>DPL Server</th>
+                <th>DPL Status</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="networkTable">
+            <tr data-location="CAES" data-switch="10.11.0.1" data-dpl="10.11.0.100">
+                <td>CAES</td>
+                <td>10.11.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.11.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="CES" data-switch="10.12.0.1" data-dpl="10.12.0.100">
+                <td>CES</td>
+                <td>10.12.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.12.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="HES" data-switch="10.13.0.1" data-dpl="10.13.0.100">
+                <td>HES</td>
+                <td>10.13.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.13.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="WES" data-switch="10.14.0.1" data-dpl="10.14.0.100">
+                <td>WES</td>
+                <td>10.14.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.14.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="WSES" data-switch="10.16.0.1" data-dpl="10.16.0.100">
+                <td>WSES</td>
+                <td>10.16.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.16.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="SMS" data-switch="10.21.0.1" data-dpl="10.21.0.100">
+                <td>SMS</td>
+                <td>10.21.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.21.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="GTMS" data-switch="10.22.0.1" data-dpl="10.22.0.100">
+                <td>GTMS</td>
+                <td>10.22.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.22.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="SHS" data-switch="10.31.0.1" data-dpl="10.31.0.100">
+                <td>SHS</td>
+                <td>10.31.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.31.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="WHS" data-switch="10.32.0.1" data-dpl="10.32.0.100">
+                <td>WHS</td>
+                <td>10.32.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.32.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="Courthouse" data-switch="10.40.0.1" data-dpl="">
+                <td>Courthouse</td>
+                <td>10.40.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>-</td>
+                <td class="pingResult dplResult">N/A</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="ANX (Annex)" data-switch="10.41.0.1" data-dpl="">
+                <td>ANX (Annex)</td>
+                <td>10.41.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>-</td>
+                <td class="pingResult dplResult">N/A</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="Central Office" data-switch="10.42.1.1" data-dpl="">
+                <td>Central Office</td>
+                <td>10.42.1.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>-</td>
+                <td class="pingResult dplResult">N/A</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="School Board Office" data-switch="10.43.0.1" data-dpl="">
+                <td>School Board Office</td>
+                <td>10.43.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>-</td>
+                <td class="pingResult dplResult">N/A</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+            <tr data-location="Technology" data-switch="10.44.0.1" data-dpl="10.44.0.100">
+                <td>Technology</td>
+                <td>10.44.0.1</td>
+                <td class="pingResult switchResult">-</td>
+                <td>10.44.0.100</td>
+                <td class="pingResult dplResult">-</td>
+                <td><button type="button" class="retest-btn">Retest</button></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h2>Server & Service Checks</h2>
+    <ul>
+    <li><input type="checkbox" id="casper"> <label for="casper">Casper: <a href="https://casper.iwcs.k12.va.us:8443/" target="_blank">https://casper.iwcs.k12.va.us:8443/</a> <span id="casperPing" class="pingResult"></span></label></li>
+    <li><input type="checkbox" id="jamf"> <label for="jamf">JAMF: <a href="https://jamf.iwcs.k12.va.us:8443/" target="_blank">https://jamf.iwcs.k12.va.us:8443/</a> <span id="jamfPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="camera"> <label for="camera">Camera System: <a href="https://iwcs-gweb.iwcs.k12.va.us/securitycenter" target="_blank">iwcs-gweb.iwcs.k12.va.us/securitycenter</a> <span id="cameraPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="powerschool"> <label for="powerschool">PowerSchool: <a href="https://powerschool.iwcs.k12.va.us" target="_blank">powerschool.iwcs.k12.va.us</a> <span id="powerschoolPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="divisionweb"> <label for="divisionweb">Division Website: <a href="https://www.iwcs.k12.va.us" target="_blank">www.iwcs.k12.va.us</a>, <a href="https://status.edlio.com" target="_blank">status.edlio.com</a> <span id="divisionwebPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="aruba"> <label for="aruba">Aruba: <a href="https://iwcs-aruba.iwcs.k12.va.us" target="_blank">iwcs-aruba.iwcs.k12.va.us</a> <span id="arubaPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="phones"> <label for="phones">Phones: <a href="https://annex-asterisk.iwcs.k12.va.us" target="_blank">annex-asterisk.iwcs.k12.va.us</a> <span id="phonesPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="reporting"> <label for="reporting">Reporting: <a href="https://iwcs-reporting.iwcs.k12.va.us" target="_blank">iwcs-reporting.iwcs.k12.va.us</a> <span id="reportingPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="laserfiche"> <label for="laserfiche">LaserFiche: <a href="https://iwcs-lf.iwcs.k12.va.us/forms" target="_blank">iwcs-lf.iwcs.k12.va.us/forms</a> <span id="laserfichePing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="webhelpdesk"> <label for="webhelpdesk">WebHelpDesk: <a href="https://webhelpdesk.iwcs.k12.va.us" target="_blank">webhelpdesk.iwcs.k12.va.us</a> <span id="webhelpdeskPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="kace"> <label for="kace">KACE: <a href="http://iwcs-kace.iwcs.k12.va.us/admin" target="_blank">iwcs-kace.iwcs.k12.va.us/admin</a> <span id="kacePing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="raptor"> <label for="raptor">Raptor Status: <a href="https://status.raptortech.com/" target="_blank">status.raptortech.com</a> <span id="raptorPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="clever"> <label for="clever">Clever Status: <a href="https://status.clever.com/" target="_blank">status.clever.com</a> <span id="cleverPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="securly"> <label for="securly">Securly Status: <a href="https://status.securly.com/" target="_blank">status.securly.com</a> <span id="securlyPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="goguardian"> <label for="goguardian">GoGuardian Status: <a href="https://status.goguardian.com/" target="_blank">status.goguardian.com</a> <span id="goguardianPing" class="pingResult"></span></label></li>
+        <li><input type="checkbox" id="psstatus"> <label for="psstatus">PowerSchool Status: <a href="https://status.powerschool.com/" target="_blank">status.powerschool.com</a> <span id="psstatusPing" class="pingResult"></span></label></li>
+    </ul>
+
+    <h3>Camera Outages</h3>
+    <p class="helper-text">List any cameras that are down and optional notes (e.g., who was notified).</p>
+    <div id="cameraIssues"></div>
+    <button type="button" id="addCameraIssue" style="margin-top:10px;">Add Camera Issue</button>
+    <textarea id="cameraNotes" rows="3" style="width:100%;margin-top:10px;" placeholder="Additional camera notes or people to @ (optional)"></textarea>
+
+    <h2>GSX Checks</h2>
+    <ul>
+        <li><input type="checkbox" id="gsxlogin"> <label for="gsxlogin">Login to GSX</label></li>
+        <li><input type="checkbox" id="gsxprocedures"> <label for="gsxprocedures">GSX Procedures</label></li>
+        <li><input type="checkbox" id="gsxescalations"> <label for="gsxescalations">Check for Pending Escalations</label></li>
+        <li><input type="checkbox" id="gsxtoolbar"> <label for="gsxtoolbar">Check GSX Toolbar for Exclamation Mark</label></li>
+        <li><input type="checkbox" id="gsxnotify"> <label for="gsxnotify">Notify/Tag Brian in Slack if Pending</label></li>
+    </ul>
+
+    <h2>Completion</h2>
+    <ul>
+        <li><input type="checkbox" id="slacknotes"> <label for="slacknotes">Post notes to Slack #general channel, tagging personnel as needed</label></li>
+        <li><input type="checkbox" id="dispatch"> <label for="dispatch">Dispatch technician if any site is down or major issues</label></li>
+    </ul>
+
+    <h2>Notes</h2>
+    <textarea id="notes" rows="5" style="width:100%" placeholder="Add any notes or issues here..."></textarea>
+
+    <button id="generateReport" style="margin-top:20px;">Generate Slack Report &amp; Copy</button>
+    <pre id="slackReport" style="background:#fff;border:1px solid #ccc;padding:10px;margin-top:10px;display:none;"></pre>
+
+    <script>
+    // Helper to get checked status
+    function checked(id) {
+        const el = document.getElementById(id);
+        return el && el.checked;
+    }
+
+    function sectionChecked(ids) {
+        return ids.every(id => checked(id));
+    }
+
+    function getNetworkStatus() {
+        if (typeof networkLocations === 'undefined' || !networkLocations.length) {
+            return "Network status unavailable";
+        }
+        let allUp = true;
+        networkLocations.forEach(loc => {
+            if (loc.switchIp && !(loc.switchCell && loc.switchCell.textContent.includes('Up'))) {
+                allUp = false;
+            }
+            if (loc.dplIp && !(loc.dplCell && loc.dplCell.textContent.includes('Up'))) {
+                allUp = false;
+            }
+        });
+        return allUp ? "All Switch & DPL servers up" : "Some Switch or DPL servers down";
+    }
+
+    function getServerStatus(id, label) {
+        const ping = document.getElementById(id + 'Ping');
+        let status = ping && ping.textContent ? ping.textContent : (checked(id) ? "Online and working" : "Not checked");
+        return `${label}: ${status}`;
+    }
+
+    function getSimpleStatus(id, label) {
+        const ping = document.getElementById(id + 'Ping');
+        let status = ping && ping.textContent ? ping.textContent : (checked(id) ? "Online" : "Not checked");
+        return `${label}: ${status}`;
+    }
+
+    function getDivisionWebsiteStatus() {
+        const ping = document.getElementById('divisionwebPing');
+        let status = ping && ping.textContent ? ping.textContent : (checked('divisionweb') ? "up and running" : "Not checked");
+        return `Division Website: ${status}`;
+    }
+
+    function getPhonesStatus() {
+        const ping = document.getElementById('phonesPing');
+        let status = ping && ping.textContent ? ping.textContent : (checked('phones') ? "No major issues" : "Not checked");
+        return `Phones: ${status} @Eric Cooprider`;
+    }
+
+    function getGSXStatus() {
+        let gsx = [];
+        if (checked('gsxlogin')) gsx.push("Login complete");
+        if (checked('gsxprocedures')) gsx.push("Procedures done");
+        if (checked('gsxescalations')) gsx.push("Checked for Pending Escalations");
+        if (checked('gsxtoolbar')) gsx.push("Toolbar checked");
+        if (checked('gsxnotify')) gsx.push("Brian notified if needed");
+        return gsx.length ? `GSX: ${gsx.join(', ')}` : "GSX: Not checked";
+    }
+
+    function getCameraStatus() {
+        let status = getSimpleStatus('camera', 'Camera System');
+        // Look for camera issues in notes
+        const notes = document.getElementById('notes').value;
+        const camIssues = notes.match(/camera.*down|cameras down|camera issues|cameras not working/i);
+        if (camIssues) {
+            status += "\nCameras Down: " + notes;
+            status += "\n@Eric Cooprider @Chris Fox";
+        }
+        return status;
+    }
+
+    function getCompletionStatus() {
+        let arr = [];
+        if (checked('slacknotes')) arr.push("Notes posted to Slack");
+        if (checked('dispatch')) arr.push("Technician dispatched if needed");
+        return arr.length ? arr.join(', ') : "Completion: Not done";
+    }
+
+    function getDateString() {
+        const now = new Date();
+        return now.toLocaleDateString('en-US');
+    }
+
+    function getTimeString() {
+        const now = new Date();
+        return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function generateSlackReport() {
+        let report = "Bryan Koury\n  " + getTimeString() + "\nmorning check " + getDateString() + "\n";
+        report += "Network Verification: " + getNetworkStatus() + "\n";
+        report += getServerStatus('casper', 'Casper') + "\n";
+        report += getServerStatus('jamf', 'JAMF') + "\n";
+        report += getCameraStatus() + "\n";
+        report += getSimpleStatus('powerschool', 'PowerSchool') + "\n";
+        report += getDivisionWebsiteStatus() + "\n";
+        report += getPhonesStatus() + "\n";
+        report += "Server and Website Checks: " + (sectionChecked([
+            'aruba','reporting','laserfiche','webhelpdesk','kace','raptor','clever','securly','goguardian','psstatus']) ? "all up" : "not all checked") + "\n";
+        report += getGSXStatus() + "\n";
+        // Add notes if present
+        const notes = document.getElementById('notes').value.trim();
+        if (notes) {
+            report += "\nNotes: " + notes + "\n";
+        }
+        report += getCompletionStatus() + "\n";
+        return report;
+    }
+
+    document.getElementById('generateReport').onclick = function() {
+        const report = generateSlackReport();
+        const pre = document.getElementById('slackReport');
+        pre.textContent = report;
+        pre.style.display = 'block';
+        // Copy to clipboard
+        navigator.clipboard.writeText(report);
+        this.textContent = "Copied! Paste into Slack";
+        setTimeout(() => { this.textContent = "Generate Slack Report & Copy"; }, 2000);
+    };
+
+    // --- Automated Ping Logic ---
+    // For network IPs, requires backend at http://localhost:5000/ping?ip=...
+    // For websites, uses fetch for HTTP status
+    const networkLocations = Array.from(document.querySelectorAll('#networkTable tr[data-location]')).map(row => {
+        const location = row.dataset.location;
+        const switchIp = row.dataset.switch || '';
+        const dplIp = row.dataset.dpl || '';
+        const switchCell = row.querySelector('.switchResult');
+        const dplCell = row.querySelector('.dplResult');
+        const button = row.querySelector('.retest-btn');
+        return { row, location, switchIp, dplIp, switchCell, dplCell, button };
+    });
+
+    function setStatus(cell, statusText) {
+        if (!cell) return;
+        cell.classList.add('pingResult');
+        cell.textContent = statusText;
+        cell.classList.remove('status-up', 'status-down');
+        if (statusText.includes('Up')) {
+            cell.classList.add('status-up');
+        } else if (statusText.includes('Down')) {
+            cell.classList.add('status-down');
+        }
+    }
+
+    async function pingLocation(locationObj) {
+        const { switchIp, dplIp, switchCell, dplCell } = locationObj;
+        if (switchIp) {
+            setStatus(switchCell, 'Pinging...');
+            const switchResult = await pingNetwork(switchIp);
+            setStatus(switchCell, switchResult);
+        } else if (switchCell) {
+            setStatus(switchCell, 'N/A');
+        }
+
+        if (dplCell) {
+            if (dplIp) {
+                setStatus(dplCell, 'Pinging...');
+                const dplResult = await pingNetwork(dplIp);
+                setStatus(dplCell, dplResult);
+            } else {
+                setStatus(dplCell, 'N/A');
+            }
+        }
+    }
+
+    networkLocations.forEach(loc => {
+        if (loc.button) {
+            loc.button.addEventListener('click', () => pingLocation(loc));
+        }
+    });
+
+    const websiteList = [
+        { id: 'casperPing', url: 'https://casper.iwcs.k12.va.us:8443/' },
+        { id: 'jamfPing', url: 'https://jamf.iwcs.k12.va.us:8443/' },
+        { id: 'cameraPing', url: 'https://iwcs-gweb.iwcs.k12.va.us/securitycenter' },
+        { id: 'powerschoolPing', url: 'https://powerschool.iwcs.k12.va.us' },
+        { id: 'divisionwebPing', url: 'https://www.iwcs.k12.va.us' },
+        { id: 'arubaPing', url: 'https://iwcs-aruba.iwcs.k12.va.us' },
+        { id: 'phonesPing', url: 'https://annex-asterisk.iwcs.k12.va.us' },
+        { id: 'reportingPing', url: 'https://iwcs-reporting.iwcs.k12.va.us' },
+        { id: 'laserfichePing', url: 'https://iwcs-lf.iwcs.k12.va.us/forms' },
+        { id: 'webhelpdeskPing', url: 'https://webhelpdesk.iwcs.k12.va.us' },
+        { id: 'kacePing', url: 'http://iwcs-kace.iwcs.k12.va.us/admin' },
+        { id: 'raptorPing', url: 'https://status.raptortech.com/' },
+        { id: 'cleverPing', url: 'https://status.clever.com/' },
+        { id: 'securlyPing', url: 'https://status.securly.com/' },
+        { id: 'goguardianPing', url: 'https://status.goguardian.com/' },
+        { id: 'psstatusPing', url: 'https://status.powerschool.com/' }
+    ];
+
+    const pingServiceBases = (() => {
+        const bases = [];
+        if (Array.isArray(window.PING_SERVICE_BASE)) {
+            bases.push(...window.PING_SERVICE_BASE);
+        } else if (typeof window.PING_SERVICE_BASE === 'string' && window.PING_SERVICE_BASE.trim()) {
+            bases.push(window.PING_SERVICE_BASE.trim());
+        }
+        bases.push('http://127.0.0.1:5000', 'http://localhost:5000');
+        return [...new Set(bases)].map(base => base.replace(/\/$/, ''));
+    })();
+
+    async function pingNetwork(ip) {
+        if (!ip) {
+            return 'N/A';
+        }
+        let lastError = null;
+        for (const base of pingServiceBases) {
+            const url = `${base}/ping?ip=${encodeURIComponent(ip)}`;
+            try {
+                const response = await fetch(url, { cache: 'no-store' });
+                const result = await response.json();
+                if (response.ok && result.success) {
+                    return result.time ? `Up (${result.time}ms)` : 'Up';
+                }
+                if (response.ok) {
+                    if (result.error && result.error !== 'no-response') {
+                        return `Down (${result.error})`;
+                    }
+                    if (result.error === 'no-response') {
+                        return 'Down (no response)';
+                    }
+                    return 'Down';
+                }
+                lastError = new Error(`Ping service HTTP ${response.status}`);
+            } catch (err) {
+                lastError = err;
+                console.error('Ping request failed', url, err);
+            }
+        }
+        return lastError ? 'Down (ping service offline)' : 'Down';
+    }
+
+    async function pingWebsite(url) {
+        try {
+            const start = performance.now();
+            const response = await fetch(url, { mode: 'no-cors' });
+            const end = performance.now();
+            // If fetch does not throw, consider up
+            return `Up (${Math.round(end - start)}ms)`;
+        } catch (e) {
+            return 'Down';
+        }
+    }
+
+    document.getElementById('pingAll').onclick = async function() {
+        // Ping network devices (switch + DPL per location)
+        for (const locationObj of networkLocations) {
+            await pingLocation(locationObj);
+        }
+        // Ping websites
+        for (const site of websiteList) {
+            const el = document.getElementById(site.id);
+            if (el) {
+                el.textContent = 'Pinging...';
+                const result = await pingWebsite(site.url);
+                el.textContent = result;
+                el.className = result.includes('Up') ? 'pingResult status-up' : 'pingResult status-down';
+            }
+        }
+    };
+    </script>
+</body>
+</html>

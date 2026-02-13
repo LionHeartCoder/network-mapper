@@ -1,0 +1,13 @@
+services:
+  network-mapper:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./backend/uploads:/app/uploads
+      - ./frontend:/app/frontend:ro
+    environment:
+      - DATABASE_URL=sqlite:////tmp/network-mapper.db
+      - ADMIN_TOKEN=test-admin-token

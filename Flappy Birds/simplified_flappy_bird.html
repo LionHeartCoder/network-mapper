@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simplified Flappy Bird</title>
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #70c5ce;
+        }
+        canvas {
+            border: 2px solid black;
+            display: none; /* Initially hidden */
+        }
+        #menu {
+            text-align: center;
+        }
+        #menu button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background-color: #38a1db;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #menu button:hover {
+            background-color: #2d89c5;
+        }
+    </style>
+</head>
+<body>
+    <div id="menu">
+        <h1>Simplified Flappy Bird</h1>
+        <div id="high-score" style="font-size:18px; margin-bottom:10px;"></div>
+        <button id="start-button">Start Game</button>
+    </div>
+    <canvas id="gameCanvas" width="480" height="640"></canvas>
+    <script src="simplified_flappy_bird.js"></script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Icon Picker</title>
+  <link rel="stylesheet" href="/style.css">
+  <style>
+    .icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+    .icon-card{border:1px solid #ddd;padding:8px;text-align:center;background:#fff;border-radius:6px}
+    .icon-card img{width:48px;height:48px}
+    .icon-name{font-size:0.78rem;margin-top:6px;line-height:1.2;height:2.4em;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;word-break:break-word}
+    .icon-file{font-size:0.68rem;color:#666;height:1.1em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .icon-actions{display:flex;gap:6px;justify-content:center;margin-top:6px}
+    .icon-actions button{padding:4px 6px}
+    #pickerTop{display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap}
+    #statusMsg{font-size:0.85rem;color:#1e5b9a}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Icon Picker</h1>
+    <div id="pickerTop">
+      <input id="filter" placeholder="Filter icons by name" />
+      <div style="margin-left:auto">Selected target:
+        <select id="targetSelect"></select>
+      </div>
+      <input id="typeAddInput" placeholder="new type (e.g. printer)">
+      <button id="typeAddBtn">Add Type</button>
+      <select id="typeRemoveSelect"></select>
+      <button id="typeRemoveBtn">Remove Type</button>
+    </div>
+    <div id="statusMsg"></div>
+    <div id="grid" class="icon-grid"></div>
+  </main>
+  <script src="/js/icon_picker.js"></script>
+</body>
+</html>

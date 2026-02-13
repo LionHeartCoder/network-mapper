@@ -1,0 +1,11 @@
+version: "3.8"
+services:
+  helpdesk-call-log:
+    build:
+      context: ../../
+      dockerfile: docker/helpdesk-call-log/Dockerfile
+    image: helpdesk-call-log:latest
+    container_name: helpdesk-call-log
+    ports:
+      - "8080:80"  # Host:Container
+    restart: unless-stopped

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WHD Tickets</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f4ef;
+      --panel: #ffffff;
+      --ink: #1a1a1a;
+      --muted: #5c5c5c;
+      --accent: #b8501e;
+      --accent-2: #2a6f97;
+      --border: #e1ddd6;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Gill Sans", "Trebuchet MS", Arial, sans-serif;
+      background: radial-gradient(circle at 10% 10%, #fff4e6 0%, var(--bg) 45%, #f3f0ea 100%);
+      color: var(--ink);
+    }
+    header {
+      padding: 24px 32px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(120deg, #fce8d5, #f7f4ef 60%);
+    }
+    header h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+      letter-spacing: 0.5px;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+    }
+    main {
+      padding: 24px 32px 48px;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .toolbar input, .toolbar button, .toolbar select {
+      height: 38px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      padding: 0 12px;
+      font-size: 14px;
+      background: var(--panel);
+    }
+    .toolbar button {
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    .toolbar button.secondary {
+      background: var(--accent-2);
+    }
+    .summary {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      font-size: 13px;
+      vertical-align: top;
+    }
+    th {
+      background: #f3efe8;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-size: 11px;
+    }
+    tbody tr:hover {
+      background: #fff6ea;
+    }
+    td[contenteditable="true"] {
+      background: #fffdf8;
+      outline: 2px solid transparent;
+    }
+    td[contenteditable="true"]:focus {
+      outline: 2px solid var(--accent-2);
+      border-radius: 4px;
+    }
+    .status {
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .status.Open { color: #1d6f42; }
+    .status.Pending { color: #b26a00; }
+    .status.Updated { color: #2a6f97; }
+    .status.Closed { color: #8c2f12; }
+
+    @media (max-width: 900px) {
+      header, main { padding: 16px; }
+      table { font-size: 12px; }
+      th, td { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>WHD Ticket Manager</h1>
+    <p>Edit ticket fields locally, then export JSON for n8n to ingest.</p>
+  </header>
+  <main>
+    <div class="toolbar">
+      <input id="filter" type="search" placeholder="Filter by client, subject, location..." />
+      <select id="statusFilter">
+        <option value="">All statuses</option>
+        <option value="Open">Open</option>
+        <option value="Pending">Pending</option>
+        <option value="Updated">Updated</option>
+        <option value="Closed">Closed</option>
+      </select>
+      <button id="exportJson">Export JSON</button>
+      <button id="exportCsv" class="secondary">Export CSV</button>
+      <span class="summary" id="summary">0 tickets loaded</span>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Ticket #</th>
+          <th>Status</th>
+          <th>Subject</th>
+          <th>Client</th>
+          <th>Location</th>
+          <th>Tech</th>
+          <th>Notes</th>
+          <th>Email Date</th>
+        </tr>
+      </thead>
+      <tbody id="ticketBody"></tbody>
+    </table>
+  </main>
+
+  <script>
+    const dataUrl = './whd_tickets.json';
+    const tbody = document.getElementById('ticketBody');
+    const filter = document.getElementById('filter');
+    const statusFilter = document.getElementById('statusFilter');
+    const summary = document.getElementById('summary');
+
+    let tickets = [];
+
+    function render() {
+      const query = filter.value.toLowerCase();
+      const status = statusFilter.value;
+      const filtered = tickets.filter(ticket => {
+        const matchesText = [
+          ticket.ticketId,
+          ticket.subject,
+          ticket.client,
+          ticket.location,
+          ticket.tech,
+          ticket.notes
+        ].join(' ').toLowerCase().includes(query);
+        const matchesStatus = !status || ticket.status === status;
+        return matchesText && matchesStatus;
+      });
+
+      tbody.innerHTML = '';
+      filtered.forEach(ticket => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${ticket.ticketId || ''}</td>
+          <td class="status ${ticket.status || ''}" contenteditable="true" data-field="status">${ticket.status || ''}</td>
+          <td contenteditable="true" data-field="subject">${ticket.subject || ''}</td>
+          <td contenteditable="true" data-field="client">${ticket.client || ''}</td>
+          <td contenteditable="true" data-field="location">${ticket.location || ''}</td>
+          <td contenteditable="true" data-field="tech">${ticket.tech || ''}</td>
+          <td contenteditable="true" data-field="notes">${ticket.notes || ''}</td>
+          <td>${ticket.emailDate || ''}</td>
+        `;
+        row.querySelectorAll('[contenteditable="true"]').forEach(cell => {
+          cell.addEventListener('input', () => {
+            const field = cell.dataset.field;
+            ticket[field] = cell.textContent.trim();
+          });
+        });
+        tbody.appendChild(row);
+      });
+
+      summary.textContent = `${filtered.length} tickets shown`;
+    }
+
+    async function loadTickets() {
+      try {
+        const response = await fetch(dataUrl, { cache: 'no-store' });
+        tickets = await response.json();
+      } catch (error) {
+        tickets = [];
+      }
+      render();
+    }
+
+    function download(filename, content, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    document.getElementById('exportJson').addEventListener('click', () => {
+      download('whd_tickets.json', JSON.stringify(tickets, null, 2), 'application/json');
+    });
+
+    document.getElementById('exportCsv').addEventListener('click', () => {
+      const headers = ['ticketId', 'status', 'subject', 'client', 'location', 'tech', 'notes', 'emailDate'];
+      const rows = tickets.map(ticket => headers.map(key => (ticket[key] || '').replace(/"/g, '""')));
+      const csv = [headers.join(','), ...rows.map(row => row.map(value => `"${value}"`).join(','))].join('\n');
+      download('whd_tickets.csv', csv, 'text/csv');
+    });
+
+    filter.addEventListener('input', render);
+    statusFilter.addEventListener('change', render);
+
+    loadTickets();
+  </script>
+</body>
+</html>

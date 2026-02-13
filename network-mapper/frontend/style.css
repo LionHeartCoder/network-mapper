@@ -1,0 +1,55 @@
+body{font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;margin:0;padding:1rem}
+header{background:#036;color:#fff;padding:.5rem 1rem}
+main{padding:1rem}
+#palette button{margin-right:.5rem}
+#floorplanArea{border:1px dashed #ccc;padding:1rem;margin-top:1rem;min-height:300px}
+.marker{position:absolute;padding:3px;background:transparent;color:#fff;border-radius:4px;transform:translate(-50%,-50%);cursor:pointer;user-select:none;display:flex;align-items:center;justify-content:center}
+.marker img{width:22px;height:22px;display:block}
+.marker.dragging{opacity:0.7;box-shadow:0 0 6px rgba(0,0,0,0.3)}
+.marker .label{display:none;padding-left:6px;font-size:.85rem;color:#111}
+/* properties panel */
+#propsPanel.hidden{display:none}
+#propsPanel input,#propsPanel textarea,#propsPanel select{width:100%;box-sizing:border-box;margin-top:0.25rem}
+#undoBtn{background:#eee;border:1px solid #ccc;padding:4px 8px;border-radius:4px}
+/* modal */
+#deviceModal.hidden{display:none}
+#deviceModal input,#deviceModal textarea,#deviceModal select{width:100%;box-sizing:border-box;margin-top:0.25rem}
+#newDeviceBtn{background:#f7f7f7;border:1px solid #ccc;padding:4px 8px;border-radius:4px}
+/* toast */
+#toastContainer .toast{background:#333;color:#fff;padding:8px 12px;border-radius:6px;margin-top:8px;opacity:0.95}
+#toastContainer .toast.success{background:green}
+#toastContainer .toast.error{background:#b00020}
+#toastContainer .toast .close{margin-left:8px;cursor:pointer}
+
+/* inline field errors */
+.field-error{color:#b00020;font-size:0.85em;margin-top:4px}
+.invalid-field{box-shadow:0 0 0 2px rgba(176,0,32,0.12);border-radius:4px}
+.hidden{display:none}
+.valid-icon{color:#0a0; font-weight:bold; margin-left:4px}
+.invalid-icon{color:#b00020; font-weight:bold; margin-left:4px}
+
+#deviceSaveSpinner{margin-left:6px}
+#deviceSaveResult.success{color:#0a0;margin-left:6px}
+#deviceSaveResult.error{color:#b00020;margin-left:6px}
+#deviceSave[disabled]{opacity:0.6;pointer-events:none}
+
+/* history */
+#historyPanel{z-index:300}
+#historyPanel button{padding:6px 8px;border:1px solid #ccc;background:#f7f7f7}
+#historyList li{padding:6px;border-bottom:1px dashed #eee}
+#historyList li .meta{color:#666;font-size:.85em}
+#histUndo,#histRedo{min-width:64px}
+
+/* allow moving by header */
+#historyPanel h3{cursor:move;-webkit-user-select:none;user-select:none;padding-right:28px}
+
+/* collapsed history panel: small unobtrusive bar */
+#historyPanel.collapsed{width:48px;height:40px;overflow:hidden;padding:6px;border-radius:6px;box-shadow:0 2px 6px rgba(0,0,0,0.08);}
+#historyPanel.collapsed h3{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:0.85rem}
+#historyPanel.collapsed .meta, #historyPanel.collapsed #historyList, #historyPanel.collapsed div[style*="display:flex"]{display:none}
+#historyPanel.collapsed {pointer-events:auto}
+#historyToggle{padding:2px 6px;border-radius:4px;background:#eee;border:1px solid #ccc}
+/* icon picker */
+.icon-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:8px}
+.icon-card{border:1px solid #eee;padding:8px;text-align:center;background:#fff;border-radius:6px}
+.icon-card img{width:48px;height:48px}

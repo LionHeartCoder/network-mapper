@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Help Desk Call Log</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background-color: #f7f7f7;
+  }
+  h1 {
+    text-align: center;
+  }
+  form {
+    background: #fff;
+    padding: 20px 30px;
+    border-radius: 8px;
+    max-width: 600px;
+    margin: 0 auto;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+  }
+  label {
+    display: block;
+    margin-top: 12px;
+    font-weight: bold;
+  }
+  input[type="text"], textarea {
+    width: 100%;
+    padding: 6px 8px;
+    margin-top: 4px;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  textarea {
+    resize: vertical;
+    min-height: 60px;
+  }
+  button {
+    margin-top: 20px;
+    padding: 10px 18px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #copyBtn {
+    background-color: #4CAF50;
+    color: white;
+    margin-right: 10px;
+  }
+  #resetBtn {
+    background-color: #f44336;
+    color: white;
+  }
+  .form-section {
+    margin-top: 20px;
+    border-top: 1px solid #ccc;
+    padding-top: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Help Desk Call Log</h1>
+
+<form id="callLogForm">
+  <label for="date">Date:</label>
+  <input type="text" id="date" name="date">
+
+  <label for="time">Time:</label>
+  <input type="text" id="time" name="time">
+
+  <label for="caller">Caller:</label>
+  <input type="text" id="caller" name="caller">
+
+  <label for="phone">Phone#:</label>
+  <input type="text" id="phone" name="phone">
+
+  <label for="school">School:</label>
+  <input type="text" id="school" name="school">
+
+  <label for="student">Student:</label>
+  <input type="text" id="student" name="student">
+
+  <label for="barcode">Barcode:</label>
+  <input type="text" id="barcode" name="barcode">
+
+  <label for="device">Device:</label>
+  <input type="text" id="device" name="device">
+
+  <label for="ticket">Ticket#:</label>
+  <input type="text" id="ticket" name="ticket">
+
+  <div class="form-section">
+    <label for="issue">Issue:</label>
+    <textarea id="issue" name="issue"></textarea>
+
+    <label for="notes">Notes:</label>
+    <textarea id="notes" name="notes"></textarea>
+  </div>
+
+  <button type="button" id="copyBtn" onclick="copyToClipboard()">Copy to Clipboard</button>
+  <button type="button" id="saveBtn" onclick="saveLog()">Save Call</button>
+  <button type="reset" id="resetBtn">Clear</button>
+</form>
+
+<div style="max-width:600px;margin:30px auto 0 auto;">
+  <h2>Saved Calls</h2>
+  <div id="callLogList" style="background:#fff;border-radius:8px;padding:15px;min-height:60px;box-shadow:0 0 6px #ccc;white-space:pre-wrap;word-break:break-word;"></div>
+</div>
+
+<script>
+function getFormText(f) {
+  // Helper to normalize blank values to 'N/A'
+  const val = (el) => {
+    const v = (el && typeof el.value === 'string') ? el.value.trim() : '';
+    return v === '' ? 'N/A' : v;
+  };
+
+  // Tabbed output for spacing with N/A fallback
+  return (
+    `Date:\t${val(f.date)}\n` +
+    `Time:\t${val(f.time)}\n` +
+    `Caller:\t${val(f.caller)}\n` +
+    `Phone#:\t${val(f.phone)}\n` +
+    `School:\t${val(f.school)}\n` +
+    `Student:\t${val(f.student)}\n` +
+    `Barcode:\t${val(f.barcode)}\n` +
+    `Device:\t${val(f.device)}\n` +
+    `Ticket#:\t${val(f.ticket)}\n` +
+    `---------------------\n` +
+    `Issue:\t${val(f.issue)}\n\n` +
+    `Notes:\t${val(f.notes)}`
+  );
+}
+
+function copyToClipboard() {
+  const f = document.getElementById("callLogForm");
+  const text = getFormText(f);
+  navigator.clipboard.writeText(text).then(function() {
+    alert("Form data copied to clipboard! Please paste into your document or log.");
+  }, function(err) {
+    alert("Failed to copy to clipboard: " + err);
+  });
+}
+
+// --- Persistence helpers for new entries ---
+function getStoredCalls() {
+  try {
+    const raw = localStorage.getItem('callLogItems');
+    if (!raw) return [];
+    const arr = JSON.parse(raw);
+    return Array.isArray(arr) ? arr : [];
+  } catch { return []; }
+}
+
+function setStoredCalls(items) {
+  try {
+    localStorage.setItem('callLogItems', JSON.stringify(items));
+  } catch (e) {
+    console.error('Failed to persist call log items:', e);
+  }
+}
+
+function makeCallBlock(text) {
+  const block = document.createElement('div');
+  block.style.marginBottom = '18px';
+  block.style.borderBottom = '1px solid #eee';
+  block.style.paddingBottom = '8px';
+  text.split('\n').forEach(line => {
+    const lineDiv = document.createElement('div');
+    const parts = line.split('\t');
+    if (parts.length > 1) {
+      lineDiv.innerHTML = `<strong>${parts[0]}</strong>\t${parts.slice(1).join('\t')}`;
+    } else {
+      lineDiv.textContent = line;
+    }
+    lineDiv.style.wordBreak = 'break-word';
+    lineDiv.style.whiteSpace = 'pre-wrap';
+    block.appendChild(lineDiv);
+  });
+  return block;
+}
+
+function saveLog() {
+  const form = document.getElementById("callLogForm");
+  if (!form) return;
+  const text = getFormText(form);
+
+  // 1) Persist newest-first in JSON array
+  const items = getStoredCalls();
+  items.unshift(text);
+  setStoredCalls(items);
+
+  // 2) Update the DOM immediately (newest at top)
+  const container = document.getElementById("callLogList");
+  if (!container) return;
+  const block = makeCallBlock(text);
+  if (container.firstChild) {
+    container.insertBefore(block, container.firstChild);
+  } else {
+    container.appendChild(block);
+  }
+}
+
+// Save button is wired inline via onclick to avoid duplicate/conflicting listeners
+
+function renderLog() {
+  const container = document.getElementById('callLogList');
+  container.innerHTML = '';
+
+  // 1) Render new JSON-based entries (newest-first already)
+  const items = getStoredCalls();
+  items.forEach(text => {
+    const block = makeCallBlock(text);
+    container.appendChild(block);
+  });
+
+  // 2) Render legacy string-based entries (if any) below
+  const legacy = localStorage.getItem('callLogList') || '';
+  if (legacy) {
+    const calls = legacy.split(/\n---------------------\n/).filter(Boolean);
+    // Render newest first
+    calls.reverse().forEach(call => {
+      const block = makeCallBlock(call);
+      container.appendChild(block);
+    });
+  }
+}
+
+function setCurrentTime() {
+  const now = new Date();
+  const dateStr = now.toLocaleDateString();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('date').value = dateStr;
+  document.getElementById('time').value = timeStr;
+}
+
+document.getElementById('resetBtn').onclick = function() {
+  setTimeout(setCurrentTime, 10);
+};
+
+// Debugging: Log the current state of localStorage
+console.log('Current logs in localStorage:', JSON.parse(localStorage.getItem('callLogs')));
+
+window.onload = function() {
+  setCurrentTime();
+  renderLog();
+};
+
+</script>
+
+</body>
+</html>

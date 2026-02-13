@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Building Editor</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Building Editor</h1>
+  </header>
+  <main>
+    <form id="uploadForm">
+      <label>Building name: <input name="building" required></label>
+      <label>Floorplan file: <input type="file" name="file" accept="image/*,image/svg+xml"></label>
+      <button type="submit">Upload Floorplan</button>
+    </form>
+
+    <section style="margin-top:1rem">
+      <label>Existing floorplans: <select id="floorplanSelect"></select></label>
+      <button id="loadFloorplanBtn">Load</button>
+      <button id="refreshFloorplansBtn">Refresh</button>
+    </section>
+
+    <div id="floorplanArea">
+      <p>No floorplan loaded. Upload or select to edit.</p>
+    </div>
+
+    <div id="palette" style="margin-top:1rem">
+      <span style="font-weight:600;margin-right:6px">Quick Types:</span>
+      <span id="paletteTypes"></span>
+      <button id="newDeviceBtn" style="margin-left:1rem">New Device</button>
+      <small id="newDeviceHint" style="margin-left:6px;color:#666">Press "N"</small>
+      <button id="undoBtn" style="margin-left:1rem">Undo</button>
+      <a href="/icon_picker.html" style="margin-left:12px">Icon Picker</a>
+    </div>
+
+    <div id="deviceTypeManager" style="margin-top:.5rem;display:flex;gap:.4rem;align-items:center;flex-wrap:wrap">
+      <span style="font-weight:600">Manage Device Types:</span>
+      <input id="deviceTypeAddInput" placeholder="e.g. printer" style="min-width:180px">
+      <button id="addDeviceTypeBtn">Add Type</button>
+      <select id="removeDeviceTypeSelect"></select>
+      <button id="removeDeviceTypeBtn">Remove Type</button>
+    </div>
+
+    <aside id="propsPanel" class="hidden" style="position:fixed;right:1rem;top:6rem;background:#fff;border:1px solid #ccc;padding:1rem;z-index:999;width:260px">
+      <h3>Device</h3>
+      <label>Name<br><input id="propName"></label><br>
+      <label>Type<br><select id="propType"></select></label><br>
+      <label>Note<br><textarea id="propNote" rows="3"></textarea></label><br>
+      <div style="margin-top:.5rem">
+        <button id="propSave">Save</button>
+        <button id="propDelete" style="margin-left:.5rem">Delete</button>
+        <button id="propEdit" style="margin-left:.5rem">Edit</button>
+        <button id="propClose" style="margin-left:.5rem">Close</button>
+      </div>
+    </aside>
+
+    <!-- History panel -->
+    <aside id="historyPanel" style="position:fixed;left:1rem;top:6rem;background:#fff;border:1px solid #ccc;padding:0.5rem;z-index:999;width:300px;max-height:60vh;overflow:auto">
+      <h3 style="margin:0 0 .5rem 0">History <button id="historyToggle" title="Collapse history" style="float:right;padding:2px 6px;margin-left:8px">−</button></h3>
+      <div style="display:flex;gap:.5rem;margin-bottom:.5rem">
+        <button id="histUndo">Undo</button>
+        <button id="histRedo">Redo</button>
+        <button id="histClear" style="margin-left:auto">Clear</button>
+      </div>
+      <ul id="historyList" style="list-style:none;padding:0;margin:0;font-size:.9rem"></ul>
+    </aside>
+
+    <!-- Device creation modal -->
+    <div id="deviceModal" class="hidden" style="position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:#fff;border:1px solid #ccc;padding:1rem;z-index:1000;width:320px">
+      <h3 id="modalTitle">Add Device</h3>
+      <input type="hidden" id="deviceId">
+      <input type="hidden" id="deviceX">
+      <input type="hidden" id="deviceY">
+      <input type="hidden" id="deviceFP">
+      <label>Name<br><input id="deviceName"></label>
+      <div class="field-error" id="deviceNameError"></div><br>
+      <label>Type<br>
+        <select id="deviceType"></select>
+      </label>
+      <div class="field-error" id="deviceTypeError"></div><br>
+      <label>IP<br>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <input id="deviceIP" placeholder="e.g. 10.11.0.1 or 2001:db8::1" style="flex:1">
+          <span id="deviceIPIcon" class="valid-icon hidden" title="valid">✔</span>
+          <span id="deviceIPIconInvalid" class="invalid-icon hidden" title="invalid">✖</span>
+        </div>
+      </label>
+      <div class="field-error" id="deviceIPError"></div><br>
+
+      <label>MAC<br>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <input id="deviceMAC" placeholder="e.g. 00:11:22:33:44:55" style="flex:1">
+          <span id="deviceMACIcon" class="valid-icon hidden" title="valid">✔</span>
+          <span id="deviceMACIconInvalid" class="invalid-icon hidden" title="invalid">✖</span>
+        </div>
+      </label>
+      <div class="field-error" id="deviceMACError"></div><br>
+
+      <label>Room<br>
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <input id="deviceRoom" maxlength="32" style="flex:1">
+          <small id="deviceRoomCount" style="margin-left:8px;font-size:.85em;color:#666">0/32</small>
+        </div>
+      </label>
+      <div class="field-error" id="deviceRoomError"></div><br>
+      <label>Note<br><textarea id="deviceNote" rows="3"></textarea></label>
+      <div class="field-error" id="deviceNoteError"></div><br>
+      <div style="margin-top:.5rem">
+        <button id="deviceSave"><span id="deviceSaveText">Save</span> <span id="deviceSaveSpinner" class="hidden">⏳</span> <span id="deviceSaveResult" class="hidden"></span></button>
+        <button id="deviceCancel" style="margin-left:.5rem">Cancel</button>
+      </div>
+    </div>
+
+    <!-- Toast container -->
+    <div id="toastContainer" style="position:fixed;right:1rem;bottom:1rem;z-index:1100"></div>
+  </main>
+  <script src="/js/building.js"></script>
+</body>
+</html>

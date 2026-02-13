@@ -1,0 +1,1 @@
+dism /mount-wim /wimfile:D:\WinImages\WinPE-4.0-x64.wim /index:1 /mountdir:c:\wimtemp

@@ -1,0 +1,1 @@
+dism /unmount-wim /mountdir:c:\wimtemp /discard

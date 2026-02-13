@@ -1,0 +1,927 @@
+<!--
+  Help Desk Call Log v2
+  Author: Bryan Koury
+  Version: 2.0.0
+  Revision History:
+    - 2025-10-28: Major feature refresh (auto timestamps, technician lookup, Slack copy, JSON/CSV import-export, dark mode).
+    - 2024-??-??: Initial v2 layout and persistence overhaul.
+    - 2023-??-??: Original Help Desk Call Log prototype.
+  Notes:
+    This file is self-contained. Modify with care and document changes above.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Help Desk Call Log v2</title>
+<style>
+  :root {
+    --bg:#f7f7f7; --card:#fff; --text:#222; --muted:#666; --primary:#4CAF50; --danger:#f44336; --border:#ddd;
+  }
+  body { font-family: Arial, sans-serif; margin: 24px; background: var(--bg); color: var(--text); }
+  h1 { text-align:center; margin: 0 0 16px; }
+  .tabs { display:flex; justify-content:center; gap:8px; margin: 8px 0 16px; }
+  .tab-btn { padding:10px 16px; border:none; border-radius:6px; background:#eee; cursor:pointer; }
+  .tab-btn.active { background: var(--primary); color:#fff; }
+  .tab { display:none; }
+  .card { background: var(--card); border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.08); padding: 18px; max-width: 900px; margin: 0 auto 18px; }
+  form .row { display:grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  label { font-weight:600; display:block; margin-top: 10px; }
+  input[type="text"], input[type="date"], textarea, select { width:100%; box-sizing:border-box; padding:8px; border:1px solid #ccc; border-radius:6px; }
+  textarea { min-height: 70px; resize: vertical; }
+  .btn { padding:10px 16px; border:none; border-radius:6px; cursor:pointer; }
+  .btn.primary { background: var(--primary); color:#fff; }
+  .btn.danger { background: var(--danger); color:#fff; }
+  .btn.secondary { background:#eee; }
+  .btn.small { padding:6px 10px; font-size:0.85rem; }
+  .actions { display:flex; gap:10px; margin-top: 16px; }
+  .saved-list .entry { border-bottom:1px solid var(--border); padding:10px 0; }
+  .saved-list .entry:last-child { border-bottom:none; }
+  .saved-list .entry-actions { display:flex; gap:8px; margin-top:8px; }
+  .saved-list .entry-meta { font-size:0.9rem; color: var(--muted); }
+  .muted { color: var(--muted); }
+  table { width:100%; border-collapse: collapse; }
+  th, td { border-bottom: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }
+  th { background:#fafafa; }
+  .filters { display:grid; grid-template-columns: repeat(6, 1fr); gap: 10px; align-items:end; }
+  .filters .col-2 { grid-column: span 2; }
+  .filters .col-3 { grid-column: span 3; }
+  .nowrap { white-space: nowrap; }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:#0f1115;
+      --card:#161b22;
+      --text:#e6edf3;
+      --muted:#8b949e;
+      --primary:#2ea043;
+      --danger:#da3633;
+      --border:#30363d;
+    }
+    .card { box-shadow: 0 0 10px rgba(0,0,0,0.4); }
+    table { color: var(--text); }
+    th { background:#1f242d; }
+    .btn.secondary { background:#2d333b; color: var(--text); }
+  }
+</style>
+</head>
+<body>
+<h1>Help Desk Call Log v2</h1>
+<div class="tabs">
+  <button class="tab-btn active" data-tab="new" onclick="showTab('new')">New Call</button>
+  <button class="tab-btn" data-tab="history" onclick="showTab('history')">Call History</button>
+</div>
+
+<!-- New Call Tab -->
+<div id="tab-new" class="tab" style="display:block;">
+  <div class="card">
+    <form id="callForm">
+      <input type="hidden" id="date" name="date" />
+      <input type="hidden" id="time" name="time" />
+      <div class="row">
+        <div>
+          <label for="technician">Technician</label>
+          <input type="text" id="technician" name="technician" placeholder="Auto-detected" />
+        </div>
+        <div>
+          <label for="caller">Caller</label>
+          <input type="text" id="caller" name="caller" />
+        </div>
+        <div>
+          <label for="phone">Phone#</label>
+          <input type="text" id="phone" name="phone" />
+        </div>
+        <div>
+          <label for="school">School</label>
+          <select id="school" name="school"></select>
+        </div>
+        <div>
+          <label for="student">Student</label>
+          <input type="text" id="student" name="student" />
+        </div>
+        <div>
+          <label for="device">Device</label>
+          <input type="text" id="device" name="device" />
+        </div>
+        <div>
+          <label for="barcode">Barcode</label>
+          <input type="text" id="barcode" name="barcode" />
+        </div>
+        <div>
+          <label for="ticket">Ticket#</label>
+          <input type="text" id="ticket" name="ticket" />
+        </div>
+      </div>
+      <label for="issue">Issue</label>
+      <textarea id="issue" name="issue"></textarea>
+      <label for="notes">Notes</label>
+      <textarea id="notes" name="notes"></textarea>
+      <div class="actions">
+  <button class="btn secondary" type="button" onclick="copyToClipboard()">Copy to Clipboard</button>
+  <button class="btn secondary" type="button" onclick="copySlackFormatted()">Copy (Slack-formatted)</button>
+  <button class="btn primary" type="button" id="saveCallBtn" onclick="saveCall()">Save Call</button>
+        <button class="btn danger" type="reset" onclick="handleClearClick()">Clear</button>
+      </div>
+    </form>
+  </div>
+  <div class="card saved-list">
+    <h2>Saved Calls <span id="savedCount" class="muted" style="font-weight:400; font-size:0.9rem;">(0)</span></h2>
+    <div id="savedCalls"></div>
+    <div class="actions" style="margin-top:20px;">
+      <button class="btn secondary" type="button" onclick="exportAllJSON()">Backup (JSON)</button>
+      <button class="btn secondary" type="button" onclick="triggerImport()">Restore from JSON</button>
+      <button class="btn secondary" type="button" onclick="exportAllCSV()">Export All CSV</button>
+    </div>
+    <input type="file" id="importFile" accept="application/json" style="display:none;" />
+  </div>
+</div>
+
+<!-- History Tab -->
+<div id="tab-history" class="tab">
+  <div class="card">
+    <h2>Call History</h2>
+    <div class="filters" style="margin-bottom:12px;">
+      <div>
+        <label>Start Date</label>
+        <input type="date" id="filterStart" />
+      </div>
+      <div>
+        <label>End Date</label>
+        <input type="date" id="filterEnd" />
+      </div>
+      <div>
+        <label>School</label>
+        <select id="filterSchool"><option value="">All</option></select>
+      </div>
+      <div>
+        <label>Caller</label>
+        <input type="text" id="filterCaller" placeholder="Contains..." />
+      </div>
+      <div>
+        <label>Sort</label>
+        <select id="filterSort">
+          <option value="newest">Newest first</option>
+          <option value="oldest">Oldest first</option>
+        </select>
+      </div>
+      <div>
+        <button class="btn secondary" type="button" onclick="applyFilters()">Apply</button>
+      </div>
+    </div>
+    <div class="actions" style="justify-content:flex-end; margin-top:0;">
+      <button class="btn secondary" type="button" onclick="resetFilters()">Reset</button>
+      <button class="btn primary" type="button" onclick="exportFilteredCSV()">Export CSV</button>
+    </div>
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th class="nowrap">Date</th>
+            <th class="nowrap">Time</th>
+            <th>Caller</th>
+            <th>Phone</th>
+            <th>School</th>
+            <th class="nowrap">Ticket#</th>
+            <th>Device</th>
+            <th>Student</th>
+            <th class="nowrap">Actions</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody"></tbody>
+      </table>
+    </div>
+    <div class="muted" id="historyCount" style="margin-top:8px;"></div>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'callLogItemsV2';
+const EXPORT_FILE_PREFIX = 'helpdesk_call_log_backup';
+const TECH_NAME_STORAGE_KEY = 'callLogTechName';
+const TECH_NAME_ENDPOINTS = [
+  'http://127.0.0.1:5000/whoami',
+  'http://localhost:5000/whoami'
+];
+const SCHOOL_OPTIONS = [
+  '',
+  'CAES',
+  'CES',
+  'HES',
+  'WES',
+  'WSES',
+  'SMS',
+  'GTMS',
+  'SHS',
+  'WHS',
+  'Courthouse',
+  'Annex',
+  'CO',
+  'SBO',
+  'Technology',
+  'Other'
+];
+
+let currentFiltered = [];
+let cachedTechnicianName = '';
+let editingCallId = null;
+let editingOriginalRecord = null;
+
+// ---------- Utilities ----------
+function generateId(){
+  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+    return window.crypto.randomUUID();
+  }
+  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function sanitize(value){
+  return (value ?? '').toString().trim();
+}
+
+function escapeHTML(value){
+  return sanitize(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function displayValue(value){
+  const v = sanitize(value);
+  return v ? escapeHTML(v) : 'N/A';
+}
+
+function textValue(value){
+  const v = sanitize(value);
+  return v ? v : 'N/A';
+}
+
+function displayMultiline(value){
+  const v = sanitize(value);
+  if (!v) return 'N/A';
+  return escapeHTML(v).replace(/\n/g, '<br />');
+}
+
+function updateSaveButtonLabel(){
+  const btn = document.getElementById('saveCallBtn');
+  if (!btn) return;
+  if (editingCallId) {
+    btn.textContent = 'Update Call';
+  } else {
+    btn.textContent = 'Save Call';
+  }
+}
+
+function getCurrentTimestamps(){
+  const now = new Date();
+  const dateStr = now.toLocaleDateString();
+  const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const isoDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  return {
+    dateStr,
+    timeStr,
+    isoDate,
+    timestamp: now.toISOString()
+  };
+}
+
+function normalizePhone(value){
+  const original = sanitize(value);
+  const digits = original.replace(/\D/g, '');
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  if (digits.length === 5 && original.length === 5) {
+    return original;
+  }
+  return original;
+}
+
+function formatPhoneInput(){
+  const input = document.getElementById('phone');
+  if (!input) return;
+  input.value = normalizePhone(input.value);
+}
+
+function stampTimestampFields(){
+  const { dateStr, timeStr } = getCurrentTimestamps();
+  const dateField = document.getElementById('date');
+  const timeField = document.getElementById('time');
+  if (dateField) dateField.value = dateStr;
+  if (timeField) timeField.value = timeStr;
+}
+
+// ---------- Storage ----------
+function loadItems(){
+  let items = [];
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    items = raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    console.error('Failed to load saved calls', err);
+  }
+  const normalized = normalizeItems(items);
+  if (normalized.changed) {
+    saveItems(normalized.items);
+  }
+  return normalized.items;
+}
+
+function saveItems(items){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  } catch (err) {
+    console.error('Failed to persist calls', err);
+  }
+}
+
+function normalizeItems(items){
+  if (!Array.isArray(items)) {
+    return { items: [], changed: false };
+  }
+  let changed = false;
+  let maxSequence = items.reduce((max, item) => {
+    return typeof item.sequence === 'number' ? Math.max(max, item.sequence) : max;
+  }, 0);
+
+  items.forEach(item => {
+    if (!item.id) {
+      item.id = generateId();
+      changed = true;
+    }
+    if (typeof item.sequence !== 'number') {
+      maxSequence += 1;
+      item.sequence = maxSequence;
+      changed = true;
+    } else {
+      maxSequence = Math.max(maxSequence, item.sequence);
+    }
+    if (!item.timestamp) {
+      item.timestamp = item.createdAt || new Date().toISOString();
+      changed = true;
+    }
+    if (!item.createdAt) {
+      item.createdAt = item.timestamp;
+      changed = true;
+    }
+    if (!item.isoDate) {
+      const derived = item.date ? new Date(item.date) : new Date(item.timestamp);
+      item.isoDate = !isNaN(derived) ? derived.toISOString().slice(0, 10) : getCurrentTimestamps().isoDate;
+      changed = true;
+    }
+    if (typeof item.deleted === 'boolean') {
+      // legacy flag not needed
+      delete item.deleted;
+      changed = true;
+    }
+  });
+
+  return { items, changed };
+}
+
+function getNextSequence(items){
+  return items.reduce((max, item) => Math.max(max, item.sequence || 0), 0) + 1;
+}
+
+function exportAllJSON(){
+  const items = loadItems();
+  if (!items.length) {
+    alert('No saved calls to export.');
+    return;
+  }
+  const payload = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    items
+  };
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  downloadBlob(blob, `${EXPORT_FILE_PREFIX}-${stamp}.json`);
+}
+
+function exportAllCSV(){
+  const items = loadItems();
+  if (!items.length) {
+    alert('No saved calls to export.');
+    return;
+  }
+  const csv = buildCSV(items);
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'all_calls.csv');
+}
+
+function triggerImport(){
+  const input = document.getElementById('importFile');
+  if (input) {
+    input.value = '';
+    input.click();
+  }
+}
+
+function handleImportFile(evt){
+  const file = evt.target.files && evt.target.files[0];
+  if (!file) {
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const parsed = JSON.parse(reader.result);
+      const incoming = Array.isArray(parsed) ? parsed : Array.isArray(parsed.items) ? parsed.items : [];
+      if (!incoming.length) {
+        alert('Import file does not contain any calls.');
+        return;
+      }
+      if (!confirm('Importing will replace your current saved calls. Continue?')) {
+        return;
+      }
+      const normalized = normalizeItems(incoming);
+      saveItems(normalized.items);
+      renderSaved();
+      populateSchoolFilter();
+      applyFilters();
+      alert(`Imported ${normalized.items.length} call(s).`);
+    } catch (err) {
+      console.error('Import failed', err);
+      alert('Unable to read the selected file. Please ensure it is a valid export.');
+    }
+  };
+  reader.onerror = () => {
+    console.error('File read error', reader.error);
+    alert('Could not read the selected file.');
+  };
+  reader.readAsText(file);
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function buildCSV(rows){
+  const header = ['Entry #','ID','Date','Time','Technician','Caller','Phone','School','Student','Barcode','Device','Ticket#','Issue','Notes'];
+  const csvRows = [header]
+    .concat(rows.map(r => [
+      r.sequence || '',
+      r.id || '',
+      r.isoDate || '',
+      r.time || '',
+      sanitize(r.technician),
+      sanitize(r.caller),
+      sanitize(r.phone),
+      sanitize(r.school),
+      sanitize(r.student),
+      sanitize(r.barcode),
+      sanitize(r.device),
+      sanitize(r.ticket),
+      sanitize(r.issue).replace(/\n/g, ' '),
+      sanitize(r.notes).replace(/\n/g, ' ')
+    ]))
+    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+    .join('\n');
+  return csvRows;
+}
+
+// ---------- Form helpers ----------
+function captureCallData(){
+  const isEditing = Boolean(editingCallId && editingOriginalRecord);
+  if (!isEditing) {
+    stampTimestampFields();
+  }
+  formatPhoneInput();
+  const { dateStr, timeStr, isoDate, timestamp } = getCurrentTimestamps();
+  const base = isEditing ? {
+    date: editingOriginalRecord.date || dateStr,
+    time: editingOriginalRecord.time || timeStr,
+    isoDate: editingOriginalRecord.isoDate || isoDate,
+    timestamp: editingOriginalRecord.timestamp || editingOriginalRecord.createdAt || timestamp,
+    id: editingOriginalRecord.id,
+    sequence: editingOriginalRecord.sequence,
+    createdAt: editingOriginalRecord.createdAt || editingOriginalRecord.timestamp || timestamp
+  } : {
+    date: dateStr,
+    time: timeStr,
+    isoDate,
+    timestamp,
+    createdAt: timestamp
+  };
+  const get = id => sanitize(document.getElementById(id)?.value);
+  return {
+    ...base,
+    technician: get('technician') || cachedTechnicianName,
+    caller: get('caller'),
+    phone: normalizePhone(get('phone')),
+    school: document.getElementById('school')?.value || '',
+    student: get('student'),
+    barcode: get('barcode'),
+    device: get('device'),
+    ticket: get('ticket'),
+    issue: get('issue'),
+    notes: get('notes')
+  };
+}
+
+function formatPlainText(record){
+  const fields = [
+    ['Date', record.date],
+    ['Time', record.time],
+    ['Technician', record.technician],
+    ['Caller', record.caller],
+    ['Phone#', record.phone],
+    ['School', record.school],
+    ['Student', record.student],
+    ['Barcode', record.barcode],
+    ['Device', record.device],
+    ['Ticket#', record.ticket]
+  ];
+  const labelWidth = Math.max(...fields.map(([label]) => label.length));
+  const header = fields.map(([label, value]) => `${label.padEnd(labelWidth)} : ${textValue(value)}`).join('\n');
+  const issue = `Issue       : ${textValue(record.issue)}`;
+  const notes = `Notes       : ${textValue(record.notes)}`;
+  return `${header}\n${'-'.repeat(labelWidth + 3 + 20)}\n${issue}\n\n${notes}`;
+}
+
+function formatSlackBlock(record){
+  const fields = [
+    ['Date', record.date],
+    ['Time', record.time],
+    ['Technician', record.technician],
+    ['Caller', record.caller],
+    ['Phone#', record.phone],
+    ['School', record.school],
+    ['Student', record.student],
+    ['Barcode', record.barcode],
+    ['Device', record.device],
+    ['Ticket#', record.ticket]
+  ];
+  const labelWidth = Math.max(...fields.map(([label]) => label.length));
+  const lines = fields.map(([label, value]) => `${label.padEnd(labelWidth)} : ${textValue(value)}`);
+  const issueLines = textValue(record.issue).split('\n').map(line => `  ${line}`);
+  const noteLines = textValue(record.notes).split('\n').map(line => `  ${line}`);
+  return `\`\`\`\n${lines.join('\n')}\n${'-'.repeat(labelWidth + 3 + 20)}\nIssue:\n${issueLines.join('\n')}\n\nNotes:\n${noteLines.join('\n')}\n\`\`\``;
+}
+
+async function copyToClipboard(){
+  const record = captureCallData();
+  try {
+    await navigator.clipboard.writeText(formatPlainText(record));
+  } catch (err) {
+    console.error('Clipboard write failed', err);
+    alert('Unable to copy to clipboard.');
+  }
+}
+
+async function copySlackFormatted(){
+  const record = captureCallData();
+  try {
+    await navigator.clipboard.writeText(formatSlackBlock(record));
+  } catch (err) {
+    console.error('Slack clipboard write failed', err);
+    alert('Unable to copy Slack message to clipboard.');
+  }
+}
+
+function saveCall(){
+  const record = captureCallData();
+  const items = loadItems();
+  if (editingCallId && editingOriginalRecord) {
+    const index = items.findIndex(item => item.id === editingCallId);
+    if (index >= 0) {
+      items[index] = { ...items[index], ...record };
+    } else {
+      const newRecord = { ...record };
+      newRecord.id = newRecord.id || generateId();
+      newRecord.sequence = newRecord.sequence || getNextSequence(items);
+      newRecord.createdAt = newRecord.createdAt || newRecord.timestamp;
+      items.unshift(newRecord);
+    }
+  } else {
+    record.id = generateId();
+    record.sequence = getNextSequence(items);
+    record.createdAt = record.timestamp;
+    items.unshift(record);
+  }
+  saveItems(items);
+  renderSaved();
+  populateSchoolFilter();
+  applyFilters();
+  readyFormForNext();
+}
+
+function readyFormForNext(){
+  const form = document.getElementById('callForm');
+  if (!form) return;
+  form.reset();
+  editingCallId = null;
+  editingOriginalRecord = null;
+  updateSaveButtonLabel();
+  setTimeout(() => {
+    if (editingCallId) return;
+    populateSchoolSelect();
+    if (cachedTechnicianName) {
+      const techField = document.getElementById('technician');
+      if (techField) techField.value = cachedTechnicianName;
+    }
+    stampTimestampFields();
+  }, 0);
+}
+
+function handleClearClick(){
+  editingCallId = null;
+  editingOriginalRecord = null;
+  updateSaveButtonLabel();
+  setTimeout(() => {
+    if (editingCallId) return;
+    populateSchoolSelect();
+    if (cachedTechnicianName) {
+      const techField = document.getElementById('technician');
+      if (techField) techField.value = cachedTechnicianName;
+    }
+    stampTimestampFields();
+    formatPhoneInput();
+  }, 0);
+}
+
+function deleteCall(id){
+  if (!confirm('Delete this saved call?')) {
+    return;
+  }
+  const items = loadItems().filter(item => item.id !== id);
+  saveItems(items);
+  if (editingCallId === id) {
+    editingCallId = null;
+    editingOriginalRecord = null;
+    updateSaveButtonLabel();
+    readyFormForNext();
+  }
+  renderSaved();
+  populateSchoolFilter();
+  applyFilters();
+}
+
+function editCall(id){
+  const items = loadItems();
+  const record = items.find(item => item.id === id);
+  if (!record) {
+    alert('Unable to locate that call for editing.');
+    return;
+  }
+  editingCallId = id;
+  editingOriginalRecord = { ...record };
+  updateSaveButtonLabel();
+  showTab('new');
+  populateSchoolSelect();
+  const setValue = (fieldId, value) => {
+    const el = document.getElementById(fieldId);
+    if (el) el.value = value != null ? value : '';
+  };
+  setValue('technician', record.technician || cachedTechnicianName || '');
+  setValue('caller', record.caller);
+  setValue('phone', record.phone);
+  setValue('student', record.student);
+  setValue('barcode', record.barcode);
+  setValue('device', record.device);
+  setValue('ticket', record.ticket);
+  setValue('issue', record.issue);
+  setValue('notes', record.notes);
+
+  const schoolSelect = document.getElementById('school');
+  if (schoolSelect) {
+    if (record.school && !Array.from(schoolSelect.options).some(opt => opt.value === record.school)) {
+      const option = new Option(record.school, record.school);
+      schoolSelect.appendChild(option);
+    }
+    schoolSelect.value = record.school || '';
+  }
+
+  const dateField = document.getElementById('date');
+  const timeField = document.getElementById('time');
+  if (dateField) dateField.value = record.date || '';
+  if (timeField) timeField.value = record.time || '';
+
+  formatPhoneInput();
+
+  const tab = document.getElementById('tab-new');
+  if (tab && typeof tab.scrollIntoView === 'function') {
+    tab.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+// ---------- Rendering ----------
+function renderSaved(){
+  const container = document.getElementById('savedCalls');
+  const counterEl = document.getElementById('savedCount');
+  if (!container) return;
+  const items = loadItems();
+  container.innerHTML = '';
+  items.forEach(item => {
+    const entry = document.createElement('div');
+    entry.className = 'entry';
+    entry.innerHTML = `
+  <div class="entry-meta">#${displayValue(item.sequence)} • ${displayValue(item.date)} ${displayValue(item.time)} • ${displayValue(item.technician)}</div>
+  <div><strong>Caller</strong>: ${displayValue(item.caller)}</div>
+  <div><strong>Phone#</strong>: ${displayValue(item.phone)}</div>
+  <div><strong>School</strong>: ${displayValue(item.school)}</div>
+  <div><strong>Student</strong>: ${displayValue(item.student)}</div>
+  <div><strong>Barcode</strong>: ${displayValue(item.barcode)}</div>
+  <div><strong>Device</strong>: ${displayValue(item.device)}</div>
+  <div><strong>Ticket#</strong>: ${displayValue(item.ticket)}</div>
+  <div style="margin-top:6px;"><strong>Issue</strong>: ${displayMultiline(item.issue)}</div>
+  <div style="margin-top:6px;"><strong>Notes</strong>: ${displayMultiline(item.notes)}</div>
+      <div class="entry-actions">
+        <button class="btn secondary small" type="button" onclick="editCall('${item.id}')">Edit</button>
+        <button class="btn danger small" type="button" onclick="deleteCall('${item.id}')">Delete</button>
+      </div>
+    `;
+    container.appendChild(entry);
+  });
+  if (counterEl) {
+    counterEl.textContent = `(${items.length})`;
+  }
+}
+
+function uniqueSchools(items){
+  const set = new Set();
+  SCHOOL_OPTIONS.forEach(opt => opt && set.add(opt));
+  items.forEach(item => {
+    if (item.school) set.add(item.school);
+  });
+  return Array.from(set).sort();
+}
+
+function populateSchoolSelect(){
+  const select = document.getElementById('school');
+  if (!select) return;
+  if (!select.options.length) {
+    SCHOOL_OPTIONS.forEach(opt => {
+      const option = document.createElement('option');
+      option.value = opt;
+      option.textContent = opt || 'Select school';
+      select.appendChild(option);
+    });
+  }
+}
+
+function populateSchoolFilter(){
+  const select = document.getElementById('filterSchool');
+  if (!select) return;
+  const current = select.value;
+  const items = loadItems();
+  const options = ['<option value="">All</option>'].concat(uniqueSchools(items).map(s => `<option value="${s.replace(/"/g, '&quot;')}">${s}</option>`)).join('');
+  select.innerHTML = options;
+  if (current) {
+    select.value = current;
+  }
+}
+
+function applyFilters(){
+  const items = loadItems();
+  const start = document.getElementById('filterStart').value;
+  const end = document.getElementById('filterEnd').value;
+  const school = document.getElementById('filterSchool').value.trim();
+  const caller = document.getElementById('filterCaller').value.trim().toLowerCase();
+  const sort = document.getElementById('filterSort').value;
+
+  let filtered = items.filter(item => {
+    if (start && item.isoDate < start) return false;
+    if (end && item.isoDate > end) return false;
+    if (school && item.school !== school) return false;
+    if (caller && !(item.caller || '').toLowerCase().includes(caller)) return false;
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    if (sort === 'oldest') {
+      return (a.timestamp || '').localeCompare(b.timestamp || '');
+    }
+    return (b.timestamp || '').localeCompare(a.timestamp || '');
+  });
+
+  currentFiltered = filtered;
+  renderHistoryTable(filtered);
+}
+
+function renderHistoryTable(rows){
+  const tbody = document.getElementById('historyBody');
+  const counter = document.getElementById('historyCount');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  rows.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${displayValue(item.isoDate)}</td>
+      <td>${displayValue(item.time)}</td>
+      <td>${displayValue(item.caller)}</td>
+      <td>${displayValue(item.phone)}</td>
+      <td>${displayValue(item.school)}</td>
+      <td>${displayValue(item.ticket)}</td>
+      <td>${displayValue(item.device)}</td>
+      <td>${displayValue(item.student)}</td>
+      <td>
+        <button class="btn secondary small" type="button" onclick="editCall('${item.id}')">Edit</button>
+        <button class="btn danger small" type="button" onclick="deleteCall('${item.id}')">Delete</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  if (counter) {
+    counter.textContent = `${rows.length} call(s)`;
+  }
+}
+
+function resetFilters(){
+  document.getElementById('filterStart').value = '';
+  document.getElementById('filterEnd').value = '';
+  document.getElementById('filterSchool').value = '';
+  document.getElementById('filterCaller').value = '';
+  document.getElementById('filterSort').value = 'newest';
+  applyFilters();
+}
+
+function exportFilteredCSV(){
+  if (!currentFiltered.length) {
+    alert('No calls to export for current filters.');
+    return;
+  }
+  const csv = buildCSV(currentFiltered);
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), 'filtered_calls.csv');
+}
+
+// ---------- Technician autofill ----------
+async function autoFillTechnician(){
+  const input = document.getElementById('technician');
+  if (!input) return;
+  const stored = localStorage.getItem(TECH_NAME_STORAGE_KEY);
+  if (stored) {
+    cachedTechnicianName = stored;
+    input.value = stored;
+  }
+  for (const url of TECH_NAME_ENDPOINTS) {
+    try {
+      const response = await fetch(url, { cache: 'no-store' });
+      if (!response.ok) continue;
+      const data = await response.json();
+      if (data && data.name) {
+        cachedTechnicianName = data.name;
+        input.value = data.name;
+        localStorage.setItem(TECH_NAME_STORAGE_KEY, data.name);
+        return;
+      }
+    } catch (err) {
+      console.warn('Technician lookup failed for', url, err);
+    }
+  }
+}
+
+// ---------- Tabs & init ----------
+function showTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  const trigger = document.querySelector(`.tab-btn[data-tab="${tab}"]`);
+  if (trigger) trigger.classList.add('active');
+  document.querySelectorAll('.tab').forEach(el => el.style.display = 'none');
+  const target = document.getElementById(`tab-${tab}`);
+  if (target) target.style.display = 'block';
+  if (tab === 'history') {
+    populateSchoolFilter();
+    applyFilters();
+  }
+}
+
+function initialize(){
+  stampTimestampFields();
+  populateSchoolSelect();
+  renderSaved();
+  showTab('new');
+  autoFillTechnician();
+  updateSaveButtonLabel();
+  const importInput = document.getElementById('importFile');
+  if (importInput) {
+    importInput.addEventListener('change', handleImportFile);
+  }
+  const phoneInput = document.getElementById('phone');
+  if (phoneInput) {
+    phoneInput.addEventListener('blur', formatPhoneInput);
+  }
+  const techInput = document.getElementById('technician');
+  if (techInput) {
+    techInput.addEventListener('blur', () => {
+      const value = sanitize(techInput.value);
+      if (value) {
+        cachedTechnicianName = value;
+        localStorage.setItem(TECH_NAME_STORAGE_KEY, value);
+      }
+    });
+  }
+}
+
+window.addEventListener('load', initialize);
+</script>
+</body>
+</html>

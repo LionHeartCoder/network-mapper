@@ -1,0 +1,109 @@
+﻿Technology Playbook - Day Opening Procedures
+Daily responsibilities        1
+Network Verification        1
+Ensure Casper is online        2
+Ensure Camera System is online        2
+Ensure PowerSchool is Online        2
+Ensure Division Website is online        2
+Other servers that need to be checked        2
+GSX        3
+Completion        3
+Return to Technology Playbook Master Page        3
+Daily responsibilities
+The following items are the responsibility of a 7am technician upon arrival
+
+
+Operations
+* Turn on Office Lights
+* Double check storage area is secured and locked
+Network Verification
+* Check all Schools by pinging the primary switch & dpl server
+   * 10.11.0.1 - CAES
+      * Dpl-caes (10.11.0.100)
+   * 10.12.0.1 - CES 
+      * Dpl-ces (10.12.0.100)
+   * 10.13.0.1 - HES
+      * Dpl-hes (10.13.0.100)
+   * 10.14.0.1 - WES
+      * Dpl-wes (10.14.0.100)
+   * 10.16.0.1 - WSES
+      * Dpl-wses (10.16.0.100)
+   * 10.21.0.1 - SMS
+      * Dpl-sms (10.21.0.100)
+   * 10.22.0.1 - GTMS
+      * Dpl-gtms (10.22.0.100)
+   * 10.31.0.1 - SHS
+      * Dpl-shs (10.31.0.100)
+   * 10.32.0.1 - WHS
+      * Dpl-whs (10.32.0.100)
+   * 10.40.0.1 - Courthouse
+   * 10.41.0.1 - ANX (annex)
+   * 10.42.1.1 - Central Office
+   * 10.43.0.1 - School Board Office
+   * 10.44.0.1 - Technology
+      * Dpl-tech (10.44.0.100)
+Server Checks
+Ensure Casper is online
+* casper.iwcs.k12.va.us
+* jamf.iwcs.k12.va.us
+   * if DOWN then:
+      * check mysql processes (show processlist;)
+         * if 96 rows then restart
+      * check Activity Monitor
+         * if 1000% CPU then restart
+   * another issue? contact Brian/Eric
+   * to restart:
+      * sudo jamf-pro server restart
+      * verify both web page reload
+Ensure Camera System is online
+* Ensure iwcs-gweb.iwcs.k12.va.us/securitycenter is online
+   * if not operational contact Fox/Eric
+* Check for Red or Yellow cameras and mark in slack notes
+Ensure PowerSchool is Online
+* open web page: powerschool.iwcs.k12.va.us
+   * if not operational contact Jon/Fox//Eric
+Ensure Division Website is online
+* Ensure IWCS Web page is online (www.iwcs.k12.va.us & https://status.edlio.com ) if not operational contact Lynn/Eric/Fox
+Other servers that need to be checked
+* Check Aruba for any large amounts of sites offline (iwcs-aruba.iwcs.k12.va.us)
+* Check Phones for any large amounts of sites offline (annex-asterisk.iwcs.k12.va.us)
+* Check Reporting to ensure it is online (iwcs-reporting.iwcs.k12.va.us)
+* Check LaserFiche to ensure it is online (iwcs-lf.iwcs.k12.va.us/forms)
+* Check WebHelpDesk for any large delays/issues (webhelpdesk.iwcs.k12.va.us)
+* Check KACE website for issues (http://iwcs-kace.iwcs.k12.va.us/admin)
+* Check Raptor Operational Status (https://status.raptortech.com/)
+* Check Clever Operational Status (https://status.clever.com/)
+* Check Securly Operational Status (https://status.securly.com/)
+* Check GoGuardian Operational Status (https://status.goguardian.com/)
+* Check PowerSchool Operational Status (https://status.powerschool.com/)
+
+
+
+
+GSX
+* Login to GSX
+* GSX Procedures
+* Look for any pending Escalations
+* Look at GSX Toolbar at the top, look for Circle with Exclamation mark in top right
+* That will open a new set of windows (Escalations windows in the far left column) look for Pending
+* If any notify/tag Brian in Slack notes that he needs to address these Pending items
+
+
+
+
+Completion
+All resulting notes should then be posted to the Slack #general channel tagging (@) personnel for each item required
+
+
+If any site is down or having major issues, technician should be immediately dispatched
+
+
+
+
+
+
+
+
+
+
+Return to Technology Playbook Master Page

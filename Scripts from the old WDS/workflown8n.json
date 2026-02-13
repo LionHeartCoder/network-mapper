@@ -1,0 +1,175 @@
+{
+  "name": "WHD Daily Battle Plan",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 8 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Schedule Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        820,
+        340
+      ],
+      "notes": "Runs at 8:00 AM, Mon-Fri"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "WHD_URL",
+              "value": "https://helpdesk.yourdomain.com",
+              "hint": "Base URL of your WHD instance (no trailing slash)"
+            },
+            {
+              "name": "TECH_ID",
+              "value": "1",
+              "hint": "Your Tech ID number in WHD"
+            }
+          ]
+        }
+      },
+      "id": "config-node",
+      "name": "CONFIG (Edit Me)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        340
+      ],
+      "notesInFlow": true,
+      "notes": "ENTER YOUR KEYS HERE"
+    },
+    {
+      "parameters": {
+        "url": "={{ ($json.WHD_URL || '').startsWith('http') ? $json.WHD_URL : 'https://' + $json.WHD_URL }}/helpdesk/WebObjects/Helpdesk.woa/ra/Tickets",
+        "authentication": "basicAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "style",
+              "value": "details"
+            },
+            {
+              "name": "qualifier",
+              "value": "={{ \"(statustype.statusTypeName != 'Closed') AND (statustype.statusTypeName != 'Canceled') AND (assignedTech.id = \" + $json.TECH_ID + \")\" }}"
+            }
+          ]
+        },
+        "options": {
+          "allowUnauthorizedCerts": true
+        }
+      },
+      "id": "whd-connector",
+      "name": "Get WHD Tickets",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        1260,
+        340
+      ],
+      "notes": "Ignores SSL errors for local servers"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean the messy WHD data\nreturn items.map(item => {\n  const ticket = item.json;\n  \n  // Strip HTML from details using regex\n  const rawDetail = ticket.detail || '';\n  const cleanDetail = rawDetail.replace(/<[^>]*>?/gm, ' ').replace(/&nbsp;/g, ' ').trim();\n  \n  return {\n    json: {\n      id: ticket.id,\n      client: ticket.client ? ticket.client.displayName : 'Unknown',\n      subject: ticket.subject,\n      priority: ticket.priority ? ticket.priority.priorityTypeName : 'Normal',\n      status: ticket.statustype ? ticket.statustype.statusTypeName : 'Open',\n      detail: cleanDetail.substring(0, 500) // Truncate to save tokens\n    }\n  }\n});"
+      },
+      "id": "clean-data",
+      "name": "Sanitize Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1480,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gemini-1.5-pro",
+          "mode": "list",
+          "cachedResultName": "gemini-1.5-pro"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "={{ \"You are an IT Service Desk Manager. Here is a list of my open tickets for today: \" + JSON.stringify($json) }}\n\nPlease analyze these tickets and output a Daily Battle Plan in Markdown format.\n\n1. **Triage:** Identify any Critical or High priority items first.\n2. **Group:** Cluster the rest by topic (Hardware, Software, Access).\n3. **Action:** For the top 3 most urgent tickets, give me a one-sentence technical troubleshooting step to try first."
+            }
+          ]
+        }
+      },
+      "id": "gemini-analyst",
+      "name": "Gemini Analyst",
+      "type": "n8n-nodes-base.googleGeminiChatModel",
+      "typeVersion": 1,
+      "position": [
+        1700,
+        340
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "YOUR_GEMINI_CREDENTIAL_ID",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "CONFIG (Edit Me)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "CONFIG (Edit Me)": {
+      "main": [
+        [
+          {
+            "node": "Get WHD Tickets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get WHD Tickets": {
+      "main": [
+        [
+          {
+            "node": "Sanitize Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanitize Data": {
+      "main": [
+        [
+          {
+            "node": "Gemini Analyst",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

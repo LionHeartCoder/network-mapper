@@ -1,0 +1,4 @@
+name,ip,type,building
+Switch 1,10.11.0.1,switch,Main School
+AP 1,10.11.0.20,ap,Main School
+Camera 1,10.11.1.50,camera,Main School
