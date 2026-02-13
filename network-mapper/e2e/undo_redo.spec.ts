@@ -5,39 +5,59 @@ import { expect, test, APIRequestContext, Page } from '@playwright/test';
 const BASE = process.env.E2E_BASE_URL || 'http://localhost:5000';
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || 'test-admin-token';
 
-async function cleanupE2E(request: APIRequestContext): Promise<void> {
-  const res = await request.post(`${BASE}/api/admin/cleanup-tests`, {
-    headers: { 'X-Admin-Token': ADMIN_TOKEN },
-  });
-  if (res.status() !== 200 && res.status() !== 403) {
-    throw new Error(`Unexpected cleanup status: ${res.status()}`);
+// small retry helper to make API interactions more tolerant to transient errors
+async function retry<T>(fn: () => Promise<T>, attempts = 3, delayMs = 250): Promise<T> {
+  let lastErr: any;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (i < attempts - 1) await new Promise((r) => setTimeout(r, delayMs));
+    }
   }
+  throw lastErr;
+}
+
+async function cleanupE2E(request: APIRequestContext): Promise<void> {
+  await retry(async () => {
+    const res = await request.post(`${BASE}/api/admin/cleanup-tests`, {
+      headers: { 'X-Admin-Token': ADMIN_TOKEN },
+    });
+    if (res.status() !== 200 && res.status() !== 403) {
+      throw new Error(`Unexpected cleanup status: ${res.status()}`);
+    }
+    return res;
+  }, 3, 300);
 }
 
 async function createFloorplanFixture(
   request: APIRequestContext,
   buildingName: string
 ): Promise<void> {
-  const bRes = await request.post(`${BASE}/api/buildings`, {
-    data: { name: buildingName },
-  });
-  expect(bRes.ok()).toBeTruthy();
+  await retry(async () => {
+    const bRes = await request.post(`${BASE}/api/buildings`, {
+      data: { name: buildingName },
+    });
+    if (!bRes.ok()) throw new Error('create building failed');
 
-  const floorAsset = path.resolve(process.cwd(), 'tests/e2e/assets/floor.svg');
-  const floorBuffer = fs.readFileSync(floorAsset);
+    const floorAsset = path.resolve(process.cwd(), 'tests/e2e/assets/floor.svg');
+    const floorBuffer = fs.readFileSync(floorAsset);
 
-  const fpRes = await request.post(`${BASE}/api/floorplans`, {
-    multipart: {
-      building: buildingName,
-      file: {
-        name: 'floor.svg',
-        mimeType: 'image/svg+xml',
-        buffer: floorBuffer,
+    const fpRes = await request.post(`${BASE}/api/floorplans`, {
+      multipart: {
+        building: buildingName,
+        file: {
+          name: 'floor.svg',
+          mimeType: 'image/svg+xml',
+          buffer: floorBuffer,
+        },
       },
-    },
-  });
-  expect(fpRes.ok()).toBeTruthy();
-}
+    });
+    if (!fpRes.ok()) throw new Error('upload floorplan failed');
+    return fpRes;
+  }, 3, 300);
+} 
 
 async function loadBuildingFloorplan(page: Page, buildingName: string): Promise<void> {
   await page.goto(`${BASE}/building.html`, { waitUntil: 'domcontentloaded' });
