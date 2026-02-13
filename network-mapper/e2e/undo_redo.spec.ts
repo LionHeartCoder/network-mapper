@@ -73,13 +73,20 @@ async function createDeviceMarker(page: Page, name: string, type = 'switch'): Pr
 }
 
 test.describe('Undo/Redo + Import E2E', () => {
-  test('create -> delete -> undo restores marker in client history', async ({ page, request }) => {
+  test.beforeEach(async ({ request }) => {
     await cleanupE2E(request);
-    const buildingName = `E2E Undo Delete ${Date.now()}`;
+  });
+
+  test.afterEach(async ({ request }) => {
+    await cleanupE2E(request);
+  });
+
+  test('create -> delete -> undo -> redo (via UI history)', async ({ page, request }) => {
+    const buildingName = `E2E-Undo-Delete-${Date.now()}`;
     await createFloorplanFixture(request, buildingName);
     await loadBuildingFloorplan(page, buildingName);
 
-    const expectedCountAfterCreate = await createDeviceMarker(page, `E2E Delete Device ${Date.now()}`);
+    const expectedCountAfterCreate = await createDeviceMarker(page, `E2E-Delete-Device-${Date.now()}`);
     const marker = page.locator('.marker').last();
     page.once('dialog', (dialog) => dialog.accept());
     await marker.click({ button: 'right' });
@@ -88,16 +95,16 @@ test.describe('Undo/Redo + Import E2E', () => {
     await page.click('#histUndo');
     await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate);
 
-    await cleanupE2E(request);
+    await page.click('#histRedo');
+    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate - 1);
   });
 
   test('create -> move -> undo -> redo reverts and reapplies coordinates', async ({ page, request }) => {
-    await cleanupE2E(request);
-    const buildingName = `E2E Move ${Date.now()}`;
+    const buildingName = `E2E-Move-${Date.now()}`;
     await createFloorplanFixture(request, buildingName);
     await loadBuildingFloorplan(page, buildingName);
 
-    await createDeviceMarker(page, `E2E Move Device ${Date.now()}`);
+    await createDeviceMarker(page, `E2E-Move-Device-${Date.now()}`);
     const marker = page.locator('.marker').last();
 
     const beforeStyle = await page.$eval('.marker:last-child', (el) => `${(el as HTMLElement).style.left} ${(el as HTMLElement).style.top}`);
@@ -127,11 +134,9 @@ test.describe('Undo/Redo + Import E2E', () => {
       const m = document.querySelector('.marker:last-child') as HTMLElement | null;
       return !!m && `${m.style.left} ${m.style.top}` !== style;
     }, beforeStyle);
-
-    await cleanupE2E(request);
   });
 
-  test('csv import UI flow increases device rows', async ({ page }) => {
+  test('csv import UI flow increases device rows and verifies via API', async ({ page, request }) => {
     await page.goto(`${BASE}/devices.html`);
     await page.waitForSelector('#devices tbody');
 
@@ -143,11 +148,11 @@ test.describe('Undo/Redo + Import E2E', () => {
       }).length;
     });
 
-    const unique = `E2ECSV${Date.now()}`;
+    const unique = `E2E-CSV-${Date.now()}`;
     const csv = [
       'name,ip,type,building',
-      `${unique}-switch,10.10.0.1,switch,E2E CSV Building`,
-      `${unique}-camera,10.10.0.2,camera,E2E CSV Building`,
+      `${unique}-switch,10.10.0.1,switch,${unique}-building`,
+      `${unique}-camera,10.10.0.2,camera,${unique}-building`,
     ].join('\n');
 
     page.once('dialog', (dialog) => dialog.accept());
@@ -172,6 +177,11 @@ test.describe('Undo/Redo + Import E2E', () => {
       }).length;
     });
     expect(afterRows).toBeGreaterThan(beforeRows);
+
+    const apiList = await request.get(`${BASE}/api/devices`);
+    expect(apiList.ok()).toBeTruthy();
+    const devices = await apiList.json();
+    expect(devices.some((d: { name?: string }) => d.name === `${unique}-switch`)).toBeTruthy();
   });
 
   test('marker icon refresh helper can be invoked in isolation', async ({ page }) => {
