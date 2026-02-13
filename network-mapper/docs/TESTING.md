@@ -29,7 +29,7 @@
 - `backend/tests/test_import_edgecases.py`
   - Verifies CSV import tolerates missing/extra columns and duplicate rows without server crash.
 - `e2e/undo_redo.spec.ts`
-  - Playwright suite for create/delete/undo, move/undo/redo, CSV import UI flow, and icon-refresh helper invocation.
+  - Playwright suite for create/delete/undo/redo, move/undo/redo, multi-create history race guard, CSV import UI flow, bulk CSV import, and icon-refresh helper invocation.
 - `e2e/icon_picker_device_types.spec.ts`
   - Playwright suite for home-page icon-picker navigation, short icon label rendering, custom device type add/remove, and mapped-icon usage in the building editor.
 
