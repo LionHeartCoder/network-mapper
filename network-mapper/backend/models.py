@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Boolean
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
@@ -38,3 +38,14 @@ class Device(Base):
     room = Column(String, nullable=True)
     created = Column(DateTime, default=datetime.utcnow)
     building = relationship('Building', back_populates='devices')
+
+
+class Audit(Base):
+    __tablename__ = 'audits'
+    id = Column(Integer, primary_key=True)
+    action = Column(String, nullable=False)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    requested_id = Column(Integer, nullable=True)
+    restored_id = Column(Integer, nullable=True)
+    preserved_id = Column(Boolean, default=False)
+    detail = Column(String, nullable=True)

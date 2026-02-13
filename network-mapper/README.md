@@ -1,5 +1,7 @@
 # Network Mapper
 
+[![CI](https://github.com/LionHeartCoder/network-mapper/actions/workflows/ci.yml/badge.svg)](https://github.com/LionHeartCoder/network-mapper/actions/workflows/ci.yml)
+
 A small, HTML-first web app to map school buildings, floorplans and network devices (switches, MDF/IDF, phones, APs, cameras). Dockerized Flask backend (SQLite) + static frontend.
 
 ## Quick start (Docker)

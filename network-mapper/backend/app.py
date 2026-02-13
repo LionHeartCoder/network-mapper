@@ -10,18 +10,23 @@ from flask_cors import CORS
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 try:
-    from models import Base, Building, Floorplan, Device
+    from models import Base, Building, Floorplan, Device, Audit
 except Exception:
     # support running as module (gunicorn backend.app:app)
-    from backend.models import Base, Building, Floorplan, Device
+    from backend.models import Base, Building, Floorplan, Device, Audit
 from dotenv import load_dotenv
 import csv
 import io
+import json
+from datetime import datetime
 
 load_dotenv()
 
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+# audit log for device restore actions (JSON-lines)
+AUDIT_LOG = os.path.join(os.path.dirname(__file__), 'restore_audit.log')
 
 # set static folder to the top-level frontend directory so static files are found
 STATIC_FOLDER = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'frontend'))
@@ -311,6 +316,49 @@ def admin_cleanup_tests():
     session.close()
     return jsonify({"removed_buildings": removed})
 
+# --- Admin helper: audit log for restore actions ---------------------------
+@app.route('/api/admin/audit', methods=['GET'])
+def admin_audit():
+    token = os.environ.get('ADMIN_TOKEN')
+    provided = request.headers.get('X-Admin-Token') or request.args.get('token')
+    if not token or provided != token:
+        return jsonify({"error": "unauthorized"}), 403
+    # Prefer database-backed audit if available
+    try:
+        session = SessionLocal()
+        audits = session.query(Audit).order_by(Audit.id.desc()).limit(200).all()
+        out = []
+        for a in audits:
+            out.append({
+                'id': a.id,
+                'action': a.action,
+                'timestamp': a.timestamp.isoformat() if a.timestamp else None,
+                'requestedId': a.requested_id,
+                'restoredId': a.restored_id,
+                'preservedId': bool(a.preserved_id),
+                'detail': a.detail,
+            })
+        session.close()
+        return jsonify(out)
+    except Exception:
+        # fallback to file-based audit for older deployments
+        if not os.path.exists(AUDIT_LOG):
+            return jsonify([])
+        out = []
+        try:
+            with open(AUDIT_LOG, 'r') as af:
+                for ln in af:
+                    ln = ln.strip()
+                    if not ln:
+                        continue
+                    try:
+                        out.append(json.loads(ln))
+                    except Exception:
+                        continue
+        except Exception:
+            return jsonify([])
+        return jsonify(out)
+
 # NOTE: duplicate CSV-import handler (previously present here) was removed because it
 # was unreachable and duplicated the behavior implemented in `import_devices()` above.
 
@@ -342,6 +390,30 @@ def devices_restore():
                 session.add(d)
                 session.commit()
                 new_id = d.id
+                # write audit entry (non-fatal) — persist to DB and (fallback) file
+                try:
+                    a = Audit(
+                        action='restore',
+                        requested_id=desired_id,
+                        restored_id=new_id,
+                        preserved_id=True,
+                    )
+                    session.add(a)
+                    session.commit()
+                except Exception:
+                    # do not fail the restore if audit persistence fails; fall back to file
+                    try:
+                        entry = {
+                            "action": "restore",
+                            "timestamp": datetime.utcnow().isoformat() + "Z",
+                            "requestedId": desired_id,
+                            "restoredId": new_id,
+                            "preservedId": True,
+                        }
+                        with open(AUDIT_LOG, "a") as af:
+                            af.write(json.dumps(entry) + "\n")
+                    except Exception:
+                        pass
                 session.close()
                 return jsonify({"restored": True, "id": new_id, "preservedId": True})
         # fallback — create normally (autoincrement id)
@@ -360,6 +432,29 @@ def devices_restore():
         session.add(d)
         session.commit()
         new_id = d.id
+        # write audit entry (non-fatal) — persist to DB and (fallback) file
+        try:
+            a = Audit(
+                action='restore',
+                requested_id=desired_id,
+                restored_id=new_id,
+                preserved_id=False,
+            )
+            session.add(a)
+            session.commit()
+        except Exception:
+            try:
+                entry = {
+                    "action": "restore",
+                    "timestamp": datetime.utcnow().isoformat() + "Z",
+                    "requestedId": desired_id,
+                    "restoredId": new_id,
+                    "preservedId": False,
+                }
+                with open(AUDIT_LOG, "a") as af:
+                    af.write(json.dumps(entry) + "\n")
+            except Exception:
+                pass
         session.close()
         return jsonify({"restored": True, "id": new_id, "preservedId": False})
     except Exception as e:

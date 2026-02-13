@@ -16,6 +16,7 @@
   - DELETE `/api/devices/<id>` → assert `snapshot` returned and DB row removed.
   - POST `/api/devices/import` → verify CSV import returns `created` count and new devices appear in `/api/devices`.
   - `POST /api/admin/cleanup-tests` → assert unauthorized (403) when no or invalid `ADMIN_TOKEN` is provided.
+  - `GET /api/admin/audit` → verify audit entries for restore actions are returned when `X-Admin-Token` is provided.
 - UI e2e tests:
   - Create device on floorplan, confirm marker present, call Undo and confirm marker removed, call Redo and confirm marker present.
   - Move device, Undo, Redo and confirm positions revert/reapply.
@@ -28,8 +29,10 @@
   - Verifies create/update/delete snapshots and documented recreate-via-snapshot behavior.
 - `backend/tests/test_import_edgecases.py`
   - Verifies CSV import tolerates missing/extra columns and duplicate rows without server crash.
+- `backend/tests/test_audit.py`
+  - Verifies `/api/devices/restore` produces an audit entry and `/api/admin/audit` returns it (requires `ADMIN_TOKEN`).
 - `e2e/undo_redo.spec.ts`
-  - Playwright suite for create/delete/undo, move/undo/redo, CSV import UI flow, and icon-refresh helper invocation.
+  - Playwright suite for create/delete/undo/redo, move/undo/redo, multi-create history race guard, CSV import UI flow, bulk CSV import, and icon-refresh helper invocation.
 - `e2e/icon_picker_device_types.spec.ts`
   - Playwright suite for home-page icon-picker navigation, short icon label rendering, custom device type add/remove, and mapped-icon usage in the building editor.
 
