@@ -36,6 +36,13 @@ Base URL: `/`
 
 ## Admin
 - GET `/api/admin/audit` — returns recent audit entries for restore actions. Requires header `X-Admin-Token: <ADMIN_TOKEN>`; response is an array of JSON objects: `{ id, action, timestamp, requestedId, restoredId, preservedId, detail }`.
+- POST `/api/admin/audit/cleanup` — remove old audit rows. Requires header `X-Admin-Token: <ADMIN_TOKEN>`.
+  - Parameters (query or JSON body):
+    - `before` — ISO timestamp (e.g. `2026-02-17T12:00:00Z`). Deletes audit entries with `timestamp < before`.
+    - `days` — integer number of days (e.g. `30`) — deletes entries older than `now - days`.
+    - If neither `before` nor `days` is provided, the server defaults to removing entries older than **90 days**.
+  - Response: `{ "removed": <number> }` on success.
+  - Errors: `403` for unauthorized; `500` for cleanup failures.
 
 ---
 
