@@ -146,6 +146,35 @@ async function waitForDeviceRowWithText(
   }, attempts, delayMs);
 }
 
+async function markerSnapshotById(page: Page, markerId: string): Promise<{
+  left: string;
+  top: string;
+  title: string;
+  type: string;
+}> {
+  return page.$eval(`.marker[data-id="${markerId}"]`, (el) => {
+    const node = el as HTMLElement;
+    return {
+      left: node.style.left,
+      top: node.style.top,
+      title: node.title || '',
+      type: node.getAttribute('data-type') || '',
+    };
+  });
+}
+
+async function dragMarkerBy(page: Page, markerSelector: string, dx: number, dy: number): Promise<void> {
+  const marker = page.locator(markerSelector).first();
+  const box = await marker.boundingBox();
+  expect(box).toBeTruthy();
+  const startX = (box as { x: number; width: number }).x + (box as { width: number }).width / 2;
+  const startY = (box as { y: number; height: number }).y + (box as { height: number }).height / 2;
+  await page.mouse.move(startX, startY);
+  await page.mouse.down();
+  await page.mouse.move(startX + dx, startY + dy, { steps: 8 });
+  await page.mouse.up();
+}
+
 test.describe('Undo/Redo + Import E2E', () => {
   test.beforeEach(async ({ request }) => {
     await cleanupE2E(request);
@@ -230,6 +259,119 @@ test.describe('Undo/Redo + Import E2E', () => {
     await waitForMarkerCount(page, start + 1);
     await page.click('#histRedo');
     await waitForMarkerCount(page, start + 2);
+  });
+
+  test('bulk create history can fully undo then redo without dropping actions', async ({ page, request }) => {
+    const buildingName = `E2E-Bulk-History-${Date.now()}`;
+    await createFloorplanFixture(request, buildingName);
+    await loadBuildingFloorplan(page, buildingName);
+
+    const start = await page.locator('.marker').count();
+    const prefix = `E2E-Bulk-History-Device-${Date.now()}`;
+    const total = 5;
+    for (let i = 0; i < total; i += 1) {
+      await createDeviceMarker(page, `${prefix}-${i}`, 'switch', { x: 60 + i * 20, y: 60 + i * 12 });
+    }
+
+    await waitForMarkerCount(page, start + total);
+
+    for (let i = total; i > 0; i -= 1) {
+      await page.click('#histUndo');
+      await waitForMarkerCount(page, start + i - 1);
+    }
+    await waitForMarkerCount(page, start);
+
+    let apiList = await request.get(`${BASE}/api/devices`);
+    expect(apiList.ok()).toBeTruthy();
+    let devices = (await apiList.json()) as Array<{ name?: string }>;
+    expect(devices.filter((d) => (d.name || '').startsWith(prefix)).length).toBe(0);
+
+    for (let i = 1; i <= total; i += 1) {
+      await page.click('#histRedo');
+      await waitForMarkerCount(page, start + i);
+    }
+
+    apiList = await request.get(`${BASE}/api/devices`);
+    expect(apiList.ok()).toBeTruthy();
+    devices = (await apiList.json()) as Array<{ name?: string }>;
+    expect(devices.filter((d) => (d.name || '').startsWith(prefix)).length).toBe(total);
+  });
+
+  test('move + rename/type update undo/redo preserves chronological order', async ({ page, request }) => {
+    const buildingName = `E2E-Move-Rename-${Date.now()}`;
+    await createFloorplanFixture(request, buildingName);
+    await loadBuildingFloorplan(page, buildingName);
+
+    await createDeviceMarker(page, `E2E-Move-Rename-Device-${Date.now()}`);
+    const markerId = await page.locator('.marker').last().getAttribute('data-id');
+    expect(markerId).toBeTruthy();
+    const markerSelector = `.marker[data-id="${markerId}"]`;
+
+    const original = await markerSnapshotById(page, markerId as string);
+    await dragMarkerBy(page, markerSelector, 70, 36);
+    await page.waitForFunction(
+      ([id, prevLeft, prevTop]) => {
+        const marker = document.querySelector(`.marker[data-id="${id}"]`) as HTMLElement | null;
+        return !!marker && (marker.style.left !== prevLeft || marker.style.top !== prevTop);
+      },
+      [markerId, original.left, original.top]
+    );
+
+    const moved = await markerSnapshotById(page, markerId as string);
+    expect(moved.left === original.left && moved.top === original.top).toBeFalsy();
+
+    await page.locator(markerSelector).click();
+    await expect(page.locator('#propsPanel:not(.hidden)')).toBeVisible();
+    const renamedValue = `E2E-Renamed-${Date.now()}`;
+    await page.click('#propEdit');
+    await expect(page.locator('#deviceModal:not(.hidden)')).toBeVisible();
+    await expect(page.locator('#deviceName')).toHaveValue(/E2E-Move-Rename-Device-/);
+    await page.fill('#deviceName', renamedValue);
+    await page.selectOption('#deviceType', 'camera');
+    await page.click('#deviceSave');
+    await expect(page.locator('#deviceModal')).toBeHidden();
+
+    await page.waitForFunction(([id, expectedTitle]) => {
+      const marker = document.querySelector(`.marker[data-id="${id}"]`) as HTMLElement | null;
+      return !!marker && marker.getAttribute('data-type') === 'camera' && marker.title === expectedTitle;
+    }, [markerId, renamedValue]);
+    const updated = await markerSnapshotById(page, markerId as string);
+
+    await page.click('#histUndo');
+    await page.waitForFunction(
+      ([id, expectedType, expectedTitle]) => {
+        const marker = document.querySelector(`.marker[data-id="${id}"]`) as HTMLElement | null;
+        return !!marker && marker.getAttribute('data-type') === expectedType && marker.title === expectedTitle;
+      },
+      [markerId, moved.type || 'switch', moved.title]
+    );
+
+    await page.click('#histUndo');
+    await page.waitForFunction(
+      ([id, expectedLeft, expectedTop]) => {
+        const marker = document.querySelector(`.marker[data-id="${id}"]`) as HTMLElement | null;
+        return !!marker && marker.style.left === expectedLeft && marker.style.top === expectedTop;
+      },
+      [markerId, original.left, original.top]
+    );
+
+    await page.click('#histRedo');
+    await page.waitForFunction(
+      ([id, expectedLeft, expectedTop]) => {
+        const marker = document.querySelector(`.marker[data-id="${id}"]`) as HTMLElement | null;
+        return !!marker && marker.style.left === expectedLeft && marker.style.top === expectedTop;
+      },
+      [markerId, moved.left, moved.top]
+    );
+
+    await page.click('#histRedo');
+    await page.waitForFunction(
+      ([id, expectedType, expectedTitle]) => {
+        const marker = document.querySelector(`.marker[data-id="${id}"]`) as HTMLElement | null;
+        return !!marker && marker.getAttribute('data-type') === expectedType && marker.title === expectedTitle;
+      },
+      [markerId, updated.type, updated.title]
+    );
   });
 
   test('csv import UI flow increases device rows and verifies via API', async ({ page, request }) => {
