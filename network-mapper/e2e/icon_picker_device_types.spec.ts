@@ -63,21 +63,51 @@ async function loadBuildingFloorplan(page: Page, buildingName: string): Promise<
   await page.goto(`${BASE}/building.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#floorplanSelect option', { timeout: 15_000, state: 'attached' });
 
-  const options = page.locator('#floorplanSelect option');
-  const count = await options.count();
   let selectedValue: string | null = null;
-  for (let i = 0; i < count; i += 1) {
-    const text = (await options.nth(i).textContent()) || '';
-    if (text.includes(buildingName) || text.includes('floor.svg')) {
-      selectedValue = await options.nth(i).getAttribute('value');
-      break;
+  await retry(async () => {
+    const options = page.locator('#floorplanSelect option');
+    const count = await options.count();
+    selectedValue = null;
+    for (let i = 0; i < count; i += 1) {
+      const text = (await options.nth(i).textContent()) || '';
+      if (text.includes(buildingName)) {
+        selectedValue = await options.nth(i).getAttribute('value');
+        break;
+      }
     }
-  }
+    if (!selectedValue) {
+      await page.click('#refreshFloorplansBtn');
+      throw new Error(`floorplan option not visible yet for ${buildingName}`);
+    }
+  }, 6, 300);
 
   expect(selectedValue).toBeTruthy();
   await page.selectOption('#floorplanSelect', selectedValue as string);
   await page.click('#loadFloorplanBtn');
   await expect(page.locator('#floorImage')).toBeVisible();
+}
+
+async function waitForIconCards(page: Page): Promise<void> {
+  await retry(async () => {
+    const count = await page.locator('.icon-card').count();
+    if (count < 1) throw new Error('icon cards not loaded yet');
+  }, 10, 300);
+}
+
+async function waitForOptionCount(page: Page, selector: string, expected: number): Promise<void> {
+  await retry(async () => {
+    const count = await page.locator(selector).count();
+    if (count !== expected) {
+      throw new Error(`expected ${expected} options for ${selector}, got ${count}`);
+    }
+  }, 10, 250);
+}
+
+async function waitForMarkerCount(page: Page, expected: number): Promise<void> {
+  await retry(async () => {
+    const count = await page.locator('.marker').count();
+    if (count !== expected) throw new Error(`expected ${expected} markers, got ${count}`);
+  }, 12, 250);
 }
 
 test.describe('E2E icon picker and device type flows', () => {
@@ -97,7 +127,7 @@ test.describe('E2E icon picker and device type flows', () => {
 
   test('E2E icon picker renders shorter friendly labels', async ({ page }) => {
     await page.goto(`${BASE}/icon_picker.html`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.icon-card', { timeout: 30_000 });
+    await waitForIconCards(page);
 
     const summary = await page.evaluate(() => {
       const cards = Array.from(document.querySelectorAll('.icon-card')).slice(0, 60);
@@ -130,11 +160,11 @@ test.describe('E2E icon picker and device type flows', () => {
 
     await page.fill('#typeAddInput', typeSlug);
     await page.click('#typeAddBtn');
-    await expect(page.locator(`#targetSelect option[value="${typeSlug}"]`)).toHaveCount(1);
+    await waitForOptionCount(page, `#targetSelect option[value="${typeSlug}"]`, 1);
 
     await page.selectOption('#typeRemoveSelect', typeSlug);
     await page.click('#typeRemoveBtn');
-    await expect(page.locator(`#targetSelect option[value="${typeSlug}"]`)).toHaveCount(0);
+    await waitForOptionCount(page, `#targetSelect option[value="${typeSlug}"]`, 0);
   });
 
   test('E2E mapped icon is used for custom type marker in building editor', async ({ page, request }) => {
@@ -143,11 +173,11 @@ test.describe('E2E icon picker and device type flows', () => {
       const typeSlug = `e2e-map-${Date.now()}`;
 
       await page.goto(`${BASE}/icon_picker.html`, { waitUntil: 'domcontentloaded' });
-      await page.waitForSelector('.icon-card', { timeout: 30_000 });
+      await waitForIconCards(page);
 
       await page.fill('#typeAddInput', typeSlug);
       await page.click('#typeAddBtn');
-      await expect(page.locator(`#targetSelect option[value="${typeSlug}"]`)).toHaveCount(1);
+      await waitForOptionCount(page, `#targetSelect option[value="${typeSlug}"]`, 1);
       await page.selectOption('#targetSelect', typeSlug);
 
       const selectedIconFile = ((await page.locator('.icon-card .icon-file').first().textContent()) || '').trim();
@@ -167,10 +197,7 @@ test.describe('E2E icon picker and device type flows', () => {
       await page.fill('#deviceName', `E2E Mapped ${Date.now()}`);
       await page.selectOption('#deviceType', typeSlug);
       await page.click('#deviceSave');
-      await page.waitForFunction(
-        (expected) => document.querySelectorAll('.marker').length === expected,
-        before + 1
-      );
+      await waitForMarkerCount(page, before + 1);
 
       const markerIcon = await page.$eval('.marker:last-child img', (img) => {
         const src = (img as HTMLImageElement).src;

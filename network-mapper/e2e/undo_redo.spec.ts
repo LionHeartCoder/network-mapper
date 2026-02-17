@@ -57,22 +57,29 @@ async function createFloorplanFixture(
     if (!fpRes.ok()) throw new Error('upload floorplan failed');
     return fpRes;
   }, 3, 300);
-} 
+}
 
 async function loadBuildingFloorplan(page: Page, buildingName: string): Promise<void> {
   await page.goto(`${BASE}/building.html`, { waitUntil: 'domcontentloaded' });
   await page.waitForSelector('#floorplanSelect option', { timeout: 15_000, state: 'attached' });
 
-  const options = page.locator('#floorplanSelect option');
-  const count = await options.count();
   let selectedValue: string | null = null;
-  for (let i = 0; i < count; i += 1) {
-    const text = (await options.nth(i).textContent()) || '';
-    if (text.includes(buildingName) || text.includes('floor.svg')) {
-      selectedValue = await options.nth(i).getAttribute('value');
-      break;
+  await retry(async () => {
+    const options = page.locator('#floorplanSelect option');
+    const count = await options.count();
+    selectedValue = null;
+    for (let i = 0; i < count; i += 1) {
+      const text = (await options.nth(i).textContent()) || '';
+      if (text.includes(buildingName)) {
+        selectedValue = await options.nth(i).getAttribute('value');
+        break;
+      }
     }
-  }
+    if (!selectedValue) {
+      await page.click('#refreshFloorplansBtn');
+      throw new Error(`floorplan option not visible yet for ${buildingName}`);
+    }
+  }, 6, 300);
 
   expect(selectedValue).toBeTruthy();
   await page.selectOption('#floorplanSelect', selectedValue as string);
@@ -93,7 +100,7 @@ async function createDeviceMarker(
   await page.fill('#deviceName', name);
   await page.selectOption('#deviceType', type);
   await page.click('#deviceSave');
-  await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, before + 1);
+  await waitForMarkerCount(page, before + 1);
   return before + 1;
 }
 
@@ -107,11 +114,36 @@ async function visibleDeviceRows(page: Page): Promise<number> {
   });
 }
 
-async function waitForMarkerCount(page: Page, expected: number): Promise<void> {
-  await page.waitForFunction(
-    (target) => document.querySelectorAll('.marker').length === target,
-    expected
-  );
+async function waitForMarkerCount(
+  page: Page,
+  expected: number,
+  attempts = 15,
+  delayMs = 250
+): Promise<void> {
+  await retry(async () => {
+    const actual = await page.locator('.marker').count();
+    if (actual !== expected) {
+      throw new Error(`expected ${expected} markers, got ${actual}`);
+    }
+  }, attempts, delayMs);
+}
+
+async function waitForDeviceRowWithText(
+  page: Page,
+  text: string,
+  attempts = 15,
+  delayMs = 250
+): Promise<void> {
+  await retry(async () => {
+    const found = await page.evaluate((needle) => {
+      return Array.from(document.querySelectorAll('#devices tbody tr')).some((row) =>
+        (row.textContent || '').includes(needle)
+      );
+    }, text);
+    if (!found) {
+      throw new Error(`row not found yet: ${text}`);
+    }
+  }, attempts, delayMs);
 }
 
 async function markerSnapshotById(page: Page, markerId: string): Promise<{
@@ -161,13 +193,13 @@ test.describe('Undo/Redo + Import E2E', () => {
     const marker = page.locator('.marker').last();
     page.once('dialog', (dialog) => dialog.accept());
     await marker.click({ button: 'right' });
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate - 1);
+    await waitForMarkerCount(page, expectedCountAfterCreate - 1);
 
     await page.click('#histUndo');
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate);
+    await waitForMarkerCount(page, expectedCountAfterCreate);
 
     await page.click('#histRedo');
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, expectedCountAfterCreate - 1);
+    await waitForMarkerCount(page, expectedCountAfterCreate - 1);
   });
 
   test('create -> move -> undo -> redo reverts and reapplies coordinates', async ({ page, request }) => {
@@ -219,14 +251,14 @@ test.describe('Undo/Redo + Import E2E', () => {
     expect(afterCreate).toBe(start + 2);
 
     await page.click('#histUndo');
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start + 1);
+    await waitForMarkerCount(page, start + 1);
     await page.click('#histUndo');
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start);
+    await waitForMarkerCount(page, start);
 
     await page.click('#histRedo');
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start + 1);
+    await waitForMarkerCount(page, start + 1);
     await page.click('#histRedo');
-    await page.waitForFunction((expected) => document.querySelectorAll('.marker').length === expected, start + 2);
+    await waitForMarkerCount(page, start + 2);
   });
 
   test('bulk create history can fully undo then redo without dropping actions', async ({ page, request }) => {
@@ -362,11 +394,7 @@ test.describe('Undo/Redo + Import E2E', () => {
     });
     await page.click('form#importForm button[type="submit"]');
 
-    await page.waitForFunction((needle) => {
-      return Array.from(document.querySelectorAll('#devices tbody tr')).some((row) =>
-        (row.textContent || '').includes(needle)
-      );
-    }, unique);
+    await waitForDeviceRowWithText(page, unique);
 
     const afterRows = await visibleDeviceRows(page);
     expect(afterRows).toBeGreaterThan(beforeRows);
@@ -398,11 +426,7 @@ test.describe('Undo/Redo + Import E2E', () => {
     });
     await page.click('form#importForm button[type="submit"]');
 
-    await page.waitForFunction((needle) => {
-      return Array.from(document.querySelectorAll('#devices tbody tr')).some((row) =>
-        (row.textContent || '').includes(needle)
-      );
-    }, `${unique}-${bulkCount - 1}`);
+    await waitForDeviceRowWithText(page, `${unique}-${bulkCount - 1}`);
 
     const afterRows = await visibleDeviceRows(page);
     expect(afterRows).toBeGreaterThanOrEqual(beforeRows + bulkCount);

@@ -34,6 +34,9 @@ Base URL: `/`
 ## CSV Import
 - POST `/api/devices/import` — `multipart/form-data` file field `file` with CSV; returns `{ "created": N }`
 
+## Admin
+- GET `/api/admin/audit` — returns recent audit entries for restore actions. Requires header `X-Admin-Token: <ADMIN_TOKEN>`; response is an array of JSON objects: `{ id, action, timestamp, requestedId, restoredId, preservedId, detail }`.
+
 ---
 
 If you add endpoints, please update this doc and add tests in `docs/TESTING.md`.
