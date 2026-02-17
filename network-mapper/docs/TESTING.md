@@ -37,6 +37,10 @@
   - Playwright suite for home-page icon-picker navigation, short icon label rendering, custom device type add/remove, and mapped-icon usage in the building editor.
 - `e2e/csv_import.spec.ts`
   - Playwright suite for CSV edge cases: missing/extra columns, duplicate rows, and larger batch imports with UI + API verification.
+- `e2e/admin_audit.spec.ts`
+  - Playwright API-focused checks for restore audit retrieval and cleanup endpoint behavior (guarded by `ADMIN_TOKEN`).
+- `e2e/admin_audit_ui.spec.ts`
+  - Playwright UI-flow checks for admin audit list rendering and cleanup interactions using a browser-side audit console (guarded by `ADMIN_TOKEN`).
 
 ## Running tests (proposed)
 - Add `tests/backend/` and `tests/e2e/` directories.
@@ -46,11 +50,16 @@
   ```
 - Playwright (if used): `npx playwright test`
 - CSV import edge-case spec only: `npx playwright test e2e/csv_import.spec.ts`
+- Admin audit UI spec only: `npx playwright test e2e/admin_audit_ui.spec.ts`
 
 ## Local playback steps
 1. Start app:
    ```bash
    docker compose up -d --build
+   ```
+   If running backend outside Docker, export a token before starting Flask:
+   ```bash
+   export ADMIN_TOKEN=test-admin-token
    ```
 2. Run backend + Python e2e:
    ```bash
@@ -59,11 +68,13 @@
 3. Run TypeScript Playwright suite:
    ```bash
    npx playwright install
+   export ADMIN_TOKEN=${ADMIN_TOKEN:-test-admin-token}
    npx playwright test
    ```
 4. Optional cleanup endpoint test support:
-   - Set `ADMIN_TOKEN` in environment (compose includes `test-admin-token` for local/CI test use).
+   - Set matching `ADMIN_TOKEN` values in backend and Playwright environments (compose includes `test-admin-token` for local/CI test use).
    - E2E fixtures use building/device names prefixed with `E2E`.
+   - Admin audit API/UI e2e specs use `ADMIN_TOKEN` (default `test-admin-token`) and will skip when the backend rejects that token.
 
 ## CI
 - Add GitHub Actions (or equivalent) to run backend tests and a minimal headless UI test suite on PRs.

@@ -1,11 +1,14 @@
 import { expect, test } from '@playwright/test';
-
-const BASE = process.env.E2E_BASE_URL || 'http://localhost:5000';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+import { adminAuditAuthStatus, adminHeaders, BASE } from './helpers/admin_auth';
 
 test.describe('Admin audit API', () => {
-  // Skip these tests when ADMIN_TOKEN is not provided in the environment
-  test.skip(!ADMIN_TOKEN, 'ADMIN_TOKEN not set');
+  test.beforeEach(async ({ request }) => {
+    const status = await adminAuditAuthStatus(request);
+    test.skip(
+      status === 403,
+      'Admin audit endpoints are unauthorized. Set backend ADMIN_TOKEN and use matching ADMIN_TOKEN for Playwright.'
+    );
+  });
 
   test('restore actions are recorded and retrievable via /api/admin/audit', async ({ request }) => {
     // create a device
@@ -35,7 +38,7 @@ test.describe('Admin audit API', () => {
 
     // fetch audit entries via admin audit endpoint
     const auditRes = await request.get(`${BASE}/api/admin/audit`, {
-      headers: { 'X-Admin-Token': ADMIN_TOKEN },
+      headers: adminHeaders(),
     });
     expect(auditRes.ok()).toBeTruthy();
     const entries = await auditRes.json();
@@ -64,7 +67,7 @@ test.describe('Admin audit API', () => {
     expect(rr.restored).toBeTruthy();
 
     // fetch audit entries and find the timestamp for our restore entry
-    const auditRes = await request.get(`${BASE}/api/admin/audit`, { headers: { 'X-Admin-Token': ADMIN_TOKEN } });
+    const auditRes = await request.get(`${BASE}/api/admin/audit`, { headers: adminHeaders() });
     expect(auditRes.ok()).toBeTruthy();
     const entries = await auditRes.json();
     const myEntry = entries.find((e: any) => e.action === 'restore' && (e.restoredId === restoredId || e.requestedId === restoredId));
@@ -74,14 +77,14 @@ test.describe('Admin audit API', () => {
     const ts = myEntry.timestamp;
     const cutoff = new Date(new Date(ts).getTime() + 1000).toISOString();
 
-    const cr = await request.post(`${BASE}/api/admin/audit/cleanup`, { headers: { 'X-Admin-Token': ADMIN_TOKEN }, data: { before: cutoff } });
+    const cr = await request.post(`${BASE}/api/admin/audit/cleanup`, { headers: adminHeaders(), data: { before: cutoff } });
     expect(cr.ok()).toBeTruthy();
     const cresp = await cr.json();
     expect(typeof cresp.removed).toBe('number');
     expect(cresp.removed).toBeGreaterThanOrEqual(1);
 
     // confirm entry removed
-    const auditRes2 = await request.get(`${BASE}/api/admin/audit`, { headers: { 'X-Admin-Token': ADMIN_TOKEN } });
+    const auditRes2 = await request.get(`${BASE}/api/admin/audit`, { headers: adminHeaders() });
     expect(auditRes2.ok()).toBeTruthy();
     const entries2 = await auditRes2.json();
     const still = entries2.some((e: any) => e.action === 'restore' && (e.restoredId === restoredId || e.requestedId === restoredId));
