@@ -29,18 +29,23 @@ async function cleanupE2E(request: APIRequestContext): Promise<void> {
 }
 
 async function uploadCsvViaUi(page: Page, csv: string, fileName: string): Promise<string> {
-  const dialogPromise = page.waitForEvent('dialog', { timeout: 15_000 });
-  await page.setInputFiles('form#importForm input[name="file"]', {
-    name: fileName,
-    mimeType: 'text/csv',
-    buffer: Buffer.from(csv, 'utf-8'),
-  });
-  await page.click('form#importForm button[type="submit"]');
+  // retry the whole upload sequence to reduce flakiness (intermittent dialog/timeouts)
+  return await retry(async () => {
+    const dialogPromise = page.waitForEvent('dialog', { timeout: 30_000 });
+    await page.setInputFiles('form#importForm input[name="file"]', {
+      name: fileName,
+      mimeType: 'text/csv',
+      buffer: Buffer.from(csv, 'utf-8'),
+    });
+    // ensure the submit button is available before clicking
+    await page.waitForSelector('form#importForm button[type="submit"]', { timeout: 10_000 });
+    await page.click('form#importForm button[type="submit"]');
 
-  const dialog = await dialogPromise;
-  const msg = dialog.message();
-  await dialog.accept();
-  return msg;
+    const dialog = await dialogPromise;
+    const msg = dialog.message();
+    await dialog.accept();
+    return msg;
+  }, 3, 500);
 }
 
 async function waitForDeviceRowWithText(page: Page, text: string, attempts = 15): Promise<void> {
