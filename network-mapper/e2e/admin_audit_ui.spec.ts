@@ -1,7 +1,5 @@
 import { expect, test, APIRequestContext, Page } from '@playwright/test';
-
-const BASE = process.env.E2E_BASE_URL || 'http://localhost:5000';
-const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+import { adminAuditAuthStatus, adminHeaders, BASE, ADMIN_TOKEN } from './helpers/admin_auth';
 
 type AuditEntry = {
   id?: number;
@@ -49,7 +47,7 @@ async function seedRestoreAuditEntry(request: APIRequestContext, label: string):
 
 async function fetchAuditEntries(request: APIRequestContext): Promise<AuditEntry[]> {
   const res = await request.get(`${BASE}/api/admin/audit`, {
-    headers: { 'X-Admin-Token': ADMIN_TOKEN as string },
+    headers: adminHeaders(),
   });
   expect(res.ok()).toBeTruthy();
   return (await res.json()) as AuditEntry[];
@@ -65,6 +63,7 @@ async function waitForRestoreAuditEntry(request: APIRequestContext, targetId: nu
 }
 
 async function mountAuditConsole(page: Page): Promise<void> {
+  const quotedBase = JSON.stringify(BASE);
   await page.setContent(`
     <!doctype html>
     <html>
@@ -82,6 +81,7 @@ async function mountAuditConsole(page: Page): Promise<void> {
           <tbody></tbody>
         </table>
         <script>
+          const API_BASE = ${quotedBase};
           const tokenInput = document.getElementById('tokenInput');
           const beforeInput = document.getElementById('beforeInput');
           const loadBtn = document.getElementById('loadBtn');
@@ -90,7 +90,7 @@ async function mountAuditConsole(page: Page): Promise<void> {
           const tbody = document.querySelector('#auditTable tbody');
 
           async function loadAudit(){
-            const res = await fetch('/api/admin/audit', {
+            const res = await fetch(API_BASE + '/api/admin/audit', {
               headers: { 'X-Admin-Token': tokenInput.value.trim() }
             });
             if(!res.ok){
@@ -113,7 +113,7 @@ async function mountAuditConsole(page: Page): Promise<void> {
           }
 
           async function cleanupAudit(){
-            const res = await fetch('/api/admin/audit/cleanup', {
+            const res = await fetch(API_BASE + '/api/admin/audit/cleanup', {
               method: 'POST',
               headers: {
                 'X-Admin-Token': tokenInput.value.trim(),
@@ -139,14 +139,20 @@ async function mountAuditConsole(page: Page): Promise<void> {
 }
 
 test.describe('Admin audit UI flows', () => {
-  test.skip(!ADMIN_TOKEN, 'ADMIN_TOKEN not set');
+  test.beforeEach(async ({ request }) => {
+    const status = await adminAuditAuthStatus(request);
+    test.skip(
+      status === 403,
+      'Admin audit endpoints are unauthorized. Set backend ADMIN_TOKEN and use matching ADMIN_TOKEN for Playwright.'
+    );
+  });
 
   test('admin audit list UI renders restore entries', async ({ page, request }) => {
     const seeded = await seedRestoreAuditEntry(request, 'list');
     await waitForRestoreAuditEntry(request, seeded.restoredId);
 
     await mountAuditConsole(page);
-    await page.fill('#tokenInput', ADMIN_TOKEN as string);
+    await page.fill('#tokenInput', ADMIN_TOKEN);
     await page.click('#loadBtn');
 
     await expect(page.locator('#status')).toContainText('loaded-');
@@ -164,7 +170,7 @@ test.describe('Admin audit UI flows', () => {
     const cutoff = new Date(new Date(entry.timestamp as string).getTime() + 1000).toISOString();
 
     await mountAuditConsole(page);
-    await page.fill('#tokenInput', ADMIN_TOKEN as string);
+    await page.fill('#tokenInput', ADMIN_TOKEN);
     await page.click('#loadBtn');
     await expect(page.locator('#auditTable tbody tr').first()).toBeVisible();
 

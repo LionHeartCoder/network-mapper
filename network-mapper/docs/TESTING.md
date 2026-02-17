@@ -57,6 +57,10 @@
    ```bash
    docker compose up -d --build
    ```
+   If running backend outside Docker, export a token before starting Flask:
+   ```bash
+   export ADMIN_TOKEN=test-admin-token
+   ```
 2. Run backend + Python e2e:
    ```bash
    pytest -q
@@ -64,12 +68,13 @@
 3. Run TypeScript Playwright suite:
    ```bash
    npx playwright install
+   export ADMIN_TOKEN=${ADMIN_TOKEN:-test-admin-token}
    npx playwright test
    ```
 4. Optional cleanup endpoint test support:
-   - Set `ADMIN_TOKEN` in environment (compose includes `test-admin-token` for local/CI test use).
+   - Set matching `ADMIN_TOKEN` values in backend and Playwright environments (compose includes `test-admin-token` for local/CI test use).
    - E2E fixtures use building/device names prefixed with `E2E`.
-   - Admin audit API/UI e2e specs are token-guarded and will skip when `ADMIN_TOKEN` is unset.
+   - Admin audit API/UI e2e specs use `ADMIN_TOKEN` (default `test-admin-token`) and will skip when the backend rejects that token.
 
 ## CI
 - Add GitHub Actions (or equivalent) to run backend tests and a minimal headless UI test suite on PRs.
