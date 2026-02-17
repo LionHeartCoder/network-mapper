@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 import csv
 import io
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -358,6 +358,44 @@ def admin_audit():
         except Exception:
             return jsonify([])
         return jsonify(out)
+
+
+# --- Admin helper: cleanup old audit entries ------------------------------
+@app.route('/api/admin/audit/cleanup', methods=['POST'])
+def admin_audit_cleanup():
+    token = os.environ.get('ADMIN_TOKEN')
+    provided = request.headers.get('X-Admin-Token') or request.args.get('token')
+    if not token or provided != token:
+        return jsonify({"error": "unauthorized"}), 403
+
+    # Accept either `before` (ISO timestamp) or `days` (integer) in query or JSON body
+    payload = request.json if request.is_json else {}
+    before_param = request.args.get('before') or payload.get('before')
+    days_param = request.args.get('days') or payload.get('days')
+
+    try:
+        session = SessionLocal()
+        if before_param:
+            # support 'Z' suffix
+            if before_param.endswith('Z'):
+                cutoff = datetime.fromisoformat(before_param.replace('Z', '+00:00'))
+            else:
+                cutoff = datetime.fromisoformat(before_param)
+        elif days_param is not None:
+            days = int(days_param)
+            cutoff = datetime.utcnow() - timedelta(days=days)
+        else:
+            # default retention: 90 days
+            cutoff = datetime.utcnow() - timedelta(days=90)
+
+        removed = session.query(Audit).filter(Audit.timestamp < cutoff).delete(synchronize_session=False)
+        session.commit()
+        session.close()
+        return jsonify({"removed": removed})
+    except Exception as e:
+        session.rollback()
+        session.close()
+        return jsonify({"error": "cleanup-failed", "detail": str(e)}), 500
 
 # NOTE: duplicate CSV-import handler (previously present here) was removed because it
 # was unreachable and duplicated the behavior implemented in `import_devices()` above.
